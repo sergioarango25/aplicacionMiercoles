@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "Domingo",
+    "slug": "Domingo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "domingo",
+    "userInterfaceStyle": "automatic",
+
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "La Esperanza usa tu ubicación para mostrarte los refugios, puntos de ayuda y recursos más cercanos en el mapa de emergencia."
+      }
+    },
+
+    "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.sebastiannpysteam.Domingo"
+    },
+
+    "web": {
+      "output": "static"
+    },
+
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "La Esperanza usa tu ubicación para mostrarte los refugios y recursos más cercanos."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
+    ],
+
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8b2dc3bc-b2d9-44eb-bbc9-8ade272f4f35"
+      }
+    }
+  }
+}

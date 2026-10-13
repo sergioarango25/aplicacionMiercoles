@@ -1,0 +1,35 @@
+
+import { StyleSheet } from 'react-native';
+
+import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+
+export default function ExploreScreen() {
+  return (
+    <ParallaxScrollView
+      headerBackgroundColor={{
+        light: '#A1CEDC',
+        dark: '#1D3D47',
+      }}
+    >
+      <ThemedView style={styles.container}>
+        <ThemedText type="title">
+          Explorar
+        </ThemedText>
+
+        <ThemedText>
+          Aquí puedes agregar las opciones y funcionalidades
+          de tu aplicación.
+        </ThemedText>
+      </ThemedView>
+    </ParallaxScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    gap: 15,
+    padding: 20,
+  },
+});
