@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   View,
@@ -7,6 +8,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -25,38 +27,14 @@ export default function Help() {
   const [guardando, setGuardando] = useState(false);
 
   const tiposAyuda = [
-    {
-      nombre: "Médicos",
-      icono: "medkit-outline",
-    },
-    {
-      nombre: "Primeros auxilios",
-      icono: "medical-outline",
-    },
-    {
-      nombre: "Voluntarios",
-      icono: "people-outline",
-    },
-    {
-      nombre: "Rescate",
-      icono: "shield-checkmark-outline",
-    },
-    {
-      nombre: "Alimentos",
-      icono: "restaurant-outline",
-    },
-    {
-      nombre: "Agua y suministros",
-      icono: "water-outline",
-    },
-    {
-      nombre: "Refugio",
-      icono: "home-outline",
-    },
-    {
-      nombre: "Otro",
-      icono: "help-circle-outline",
-    },
+    { nombre: "Médicos", icono: "medkit-outline" },
+    { nombre: "Primeros auxilios", icono: "medical-outline" },
+    { nombre: "Voluntarios", icono: "people-outline" },
+    { nombre: "Rescate", icono: "shield-checkmark-outline" },
+    { nombre: "Alimentos", icono: "restaurant-outline" },
+    { nombre: "Agua y suministros", icono: "water-outline" },
+    { nombre: "Refugio", icono: "home-outline" },
+    { nombre: "Otro", icono: "help-circle-outline" },
   ];
 
   const enviarSolicitud = async () => {
@@ -64,7 +42,6 @@ export default function Help() {
       Alert.alert(
         "Falta información",
         "Selecciona el tipo de ayuda que necesitas."
-
       );
       return;
     }
@@ -92,7 +69,7 @@ export default function Help() {
 
       await addDoc(collection(db, "solicitudes"), {
         usuarioId: usuarioActual.uid,
-        tipoAyuda: tipoAyuda,
+        tipoAyuda,
         descripcion: descripcion.trim(),
         estado: "Pendiente",
         fecha: serverTimestamp(),
@@ -100,18 +77,17 @@ export default function Help() {
 
       Alert.alert(
         "Solicitud enviada",
-        "Tu solicitud de ayuda fue registrada correctamente."
+        "Tu solicitud se registró correctamente y aparecerá en Home."
       );
 
       setTipoAyuda("");
       setDescripcion("");
-
     } catch (error) {
       console.log("Error al guardar solicitud:", error);
 
       Alert.alert(
         "Error",
-        "No fue posible guardar la solicitud. Intenta nuevamente."
+        "No fue posible guardar la solicitud. Verifica tu conexión e inténtalo nuevamente."
       );
     } finally {
       setGuardando(false);
@@ -123,10 +99,9 @@ export default function Help() {
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
-      {/* Encabezado */}
       <View style={styles.header}>
-
         <View style={styles.iconHeader}>
           <Ionicons
             name="alert-circle-outline"
@@ -135,14 +110,10 @@ export default function Help() {
           />
         </View>
 
-        <Text style={styles.title}>
-          Solicitar ayuda
-        </Text>
+        <Text style={styles.title}>Solicitar ayuda</Text>
       </View>
 
-      {/* Información */}
       <View style={styles.infoBox}>
-
         <Ionicons
           name="information-circle-outline"
           size={24}
@@ -150,58 +121,48 @@ export default function Help() {
         />
 
         <Text style={styles.infoText}>
-          Selecciona el tipo de ayuda que necesitas y
-          explica brevemente la situación.
+          Selecciona el tipo de ayuda que necesitas y explica
+          brevemente la situación.
         </Text>
-
       </View>
 
-      {/* Tipo de ayuda */}
       <Text style={styles.sectionTitle}>
         ¿Qué tipo de ayuda necesitas?
       </Text>
 
       <View style={styles.optionsContainer}>
+        {tiposAyuda.map((tipo) => {
+          const seleccionado = tipoAyuda === tipo.nombre;
 
-        {tiposAyuda.map((tipo) => (
-
-          <TouchableOpacity
-            key={tipo.nombre}
-            style={[
-              styles.option,
-              tipoAyuda === tipo.nombre &&
-                styles.optionSelected,
-            ]}
-            onPress={() => setTipoAyuda(tipo.nombre)}
-          >
-
-            <Ionicons
-              name={tipo.icono}
-              size={25}
-              color={
-                tipoAyuda === tipo.nombre
-                  ? "#FFFFFF"
-                  : "#1d4ed8"
-              }
-            />
-
-            <Text
+          return (
+            <TouchableOpacity
+              key={tipo.nombre}
               style={[
-                styles.optionText,
-                tipoAyuda === tipo.nombre &&
-                  styles.optionTextSelected,
+                styles.option,
+                seleccionado && styles.optionSelected,
               ]}
+              onPress={() => setTipoAyuda(tipo.nombre)}
+              activeOpacity={0.8}
             >
-              {tipo.nombre}
-            </Text>
+              <Ionicons
+                name={tipo.icono}
+                size={25}
+                color={seleccionado ? "#FFFFFF" : "#1d4ed8"}
+              />
 
-          </TouchableOpacity>
-
-        ))}
-
+              <Text
+                style={[
+                  styles.optionText,
+                  seleccionado && styles.optionTextSelected,
+                ]}
+              >
+                {tipo.nombre}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
-      {/* Descripción */}
       <Text style={styles.sectionTitle}>
         Describe lo que necesitas
       </Text>
@@ -216,13 +177,13 @@ export default function Help() {
         value={descripcion}
         onChangeText={setDescripcion}
         textAlignVertical="top"
+        editable={!guardando}
       />
 
       <Text style={styles.counter}>
         {descripcion.length}/500 caracteres
       </Text>
 
-      {/* Botón */}
       <TouchableOpacity
         style={[
           styles.button,
@@ -230,39 +191,38 @@ export default function Help() {
         ]}
         onPress={enviarSolicitud}
         disabled={guardando}
+        activeOpacity={0.8}
       >
+        {guardando ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <>
+            <Ionicons
+              name="send-outline"
+              size={22}
+              color="#FFFFFF"
+            />
 
-        <Ionicons
-          name="send-outline"
-          size={25}
-          color="#FFFFFF"
-        />
-
-        <Text style={styles.buttonText}>
-          {guardando
-            ? "Enviando..."
-            : "Enviar solicitud"}
-        </Text>
-
+            <Text style={styles.buttonText}>
+              Enviar solicitud
+            </Text>
+          </>
+        )}
       </TouchableOpacity>
 
-      {/* Nota */}
       <View style={styles.warningBox}>
-
         <Ionicons
           name="warning-outline"
-          size={35}
+          size={30}
           color="#0f172a"
         />
 
         <Text style={styles.warningText}>
-          En una emergencia que represente un peligro
-          inmediato para la vida, comunícate también con
-          los servicios de emergencia de tu localidad.
+          En una emergencia que represente un peligro inmediato
+          para la vida, comunícate también con los servicios de
+          emergencia de tu localidad.
         </Text>
-
       </View>
-
     </ScrollView>
   );
 }
@@ -287,7 +247,7 @@ const styles = StyleSheet.create({
     width: 65,
     height: 65,
     borderRadius: 50,
-    BackgroundColor: "#E0E7FF",
+    backgroundColor: "#E0E7FF",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
@@ -381,7 +341,7 @@ const styles = StyleSheet.create({
   },
 
   button: {
-    height: 52,
+    minHeight: 52,
     backgroundColor: "#0f172a",
     borderRadius: 13,
     flexDirection: "row",
