@@ -1,989 +1,1362 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   Alert,
-} from 'react-native';
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
+
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut,
+} from "firebase/auth";
 
 import {
   doc,
   getDoc,
+  setDoc,
   updateDoc,
-} from 'firebase/firestore';
+  serverTimestamp,
+} from "firebase/firestore";
 
-import { auth, db } from '../firebaseConfig.js';
+import { auth, db } from "../firebaseConfig";
 
+const ROLES = [
+  "Voluntario",
+  "Apoyo comunitario",
+  "Logística",
+  "Comunicación",
+  "Apoyo en suministros",
+];
+
+const ZONAS = [
+  { nombre: "Zona segura", distancia: "" },
+  { nombre: "Refugio San Miguel", distancia: "1.2 km" },
+  { nombre: "Punto de alimentación", distancia: "1.5 km" },
+];
 
 export default function PerfilUsuario() {
-
   const [user, setUser] = useState(null);
-
   const [cargando, setCargando] = useState(true);
-
-  // Controla si mostramos el formulario
-  const [mostrarFormulario, setMostrarFormulario] = useState(false);
-
-  // Datos que se van a editar
-  const [tipoParticipacion, setTipoParticipacion] = useState('');
-  const [disponible, setDisponible] = useState(true);
-
   const [guardando, setGuardando] = useState(false);
 
+  // Registro e inicio de sesión
+  const [modoRegistro, setModoRegistro] = useState(true);
+  const [nombre, setNombre] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [mostrarConfirmPassword, setMostrarConfirmPassword] =
+    useState(false);
 
-  // Opciones de participación
-  const tiposParticipacion = [
-    'Voluntario',
-    'Apoyo comunitario',
-    'Logística',
-    'Comunicación',
-    'Apoyo en suministros',
-  ];
+  // Información del perfil
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [tipoParticipacion, setTipoParticipacion] =
+    useState("Voluntario");
+  const [disponible, setDisponible] = useState(true);
 
-
-  const [zonas] = useState([
-    {
-      nombre: 'Zona segura',
-      distancia: '',
-    },
-    {
-      nombre: 'Refugio San Miguel',
-      distancia: '1.2 km',
-    },
-    {
-      nombre: 'Punto de alimentación',
-      distancia: '1.5 km',
-    },
-  ]);
-
-
-  // Obtener usuario de Firebase
   useEffect(() => {
-
-    const obtenerUsuario = async () => {
-
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
-
-        const usuarioActual = auth.currentUser;
-
-        if (!usuarioActual) {
-
-          Alert.alert(
-            'Sesión no encontrada',
-            'No hay un usuario actualmente conectado.'
-          );
-
+        if (!firebaseUser) {
+          setUser(null);
           setCargando(false);
-
           return;
         }
 
+        const referencia = doc(db, "usuarios", firebaseUser.uid);
+        const resultado = await getDoc(referencia);
 
-        console.log(
-          'Usuario autenticado:',
-          usuarioActual.uid
-        );
+        if (resultado.exists()) {
+          const datos = resultado.data();
 
+          setUser({
+            ...datos,
+            uid: firebaseUser.uid,
+            email: datos.email || firebaseUser.email,
+            nombre:
+              datos.nombre ||
+              firebaseUser.displayName ||
+              "Usuario",
+          });
 
-        const referenciaUsuario = doc(
-          db,
-          'usuarios',
-          usuarioActual.uid
-        );
-
-
-        const documentoUsuario = await getDoc(
-          referenciaUsuario
-        );
-
-
-        if (documentoUsuario.exists()) {
-
-          const datos = documentoUsuario.data();
-
-          console.log(
-            'Datos del usuario:',
-            datos
-          );
-
-
-          setUser(datos);
-
-
-          // Cargar información del formulario
           setTipoParticipacion(
-            datos.tipoParticipacion || 'Voluntario'
+            datos.tipoParticipacion || "Voluntario"
           );
-
-
           setDisponible(
-            datos.disponible !== undefined
-              ? datos.disponible
-              : true
+            datos.disponible === undefined
+              ? true
+              : datos.disponible
           );
-
-
         } else {
+          // Crea un perfil básico si la cuenta ya existe en Authentication.
+          const perfilInicial = {
+            uid: firebaseUser.uid,
+            nombre: firebaseUser.displayName || "Usuario",
+            email: firebaseUser.email || "",
+            rol: "usuario",
+            tipoParticipacion: "Voluntario",
+            disponible: true,
+            fechaRegistro: serverTimestamp(),
+          };
 
-          Alert.alert(
-            'Información',
-            'No se encontró información adicional de tu perfil.'
-          );
+          await setDoc(referencia, perfilInicial, { merge: true });
 
+          setUser({
+            ...perfilInicial,
+            email: firebaseUser.email || "",
+          });
+          setTipoParticipacion("Voluntario");
+          setDisponible(true);
         }
-
-
       } catch (error) {
-
-        console.log(
-          'Error obteniendo usuario:',
-          error
-        );
-
-
+        console.log("Error al cargar el perfil:", error);
         Alert.alert(
-          'Error',
-          'No se pudo obtener la información del usuario.'
+          "Error",
+          "No se pudo cargar tu perfil. Revisa tu conexión y los permisos de Firebase."
         );
-
-
+        setUser(null);
       } finally {
-
         setCargando(false);
-
       }
+    });
 
-    };
-
-
-    obtenerUsuario();
-
+    return unsubscribe;
   }, []);
 
+  const registrarUsuario = async () => {
+    const nombreLimpio = nombre.trim();
+    const correo = email.trim().toLowerCase();
 
-  // Abrir formulario
-  const abrirFormulario = () => {
+    if (!nombreLimpio || !correo || !password || !confirmPassword) {
+      Alert.alert("Campos incompletos", "Completa todos los campos.");
+      return;
+    }
 
-    setTipoParticipacion(
-      user.tipoParticipacion || 'Voluntario'
-    );
+    const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    setDisponible(
-      user.disponible !== undefined
-        ? user.disponible
-        : true
-    );
+    if (!correoValido.test(correo)) {
+      Alert.alert("Correo inválido", "Escribe un correo válido.");
+      return;
+    }
 
-    setMostrarFormulario(true);
+    if (password.length < 6) {
+      Alert.alert(
+        "Contraseña insegura",
+        "La contraseña debe tener al menos 6 caracteres."
+      );
+      return;
+    }
 
-  };
-
-
-  // Guardar cambios
-  const guardarInformacion = async () => {
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Las contraseñas no coinciden.");
+      return;
+    }
 
     try {
-
       setGuardando(true);
 
-      const usuarioActual = auth.currentUser;
-
-
-      if (!usuarioActual) {
-
-        Alert.alert(
-          'Error',
-          'No hay una sesión activa.'
-        );
-
-        return;
-
-      }
-
-
-      const referenciaUsuario = doc(
-        db,
-        'usuarios',
-        usuarioActual.uid
+      const credencial = await createUserWithEmailAndPassword(
+        auth,
+        correo,
+        password
       );
 
+      const nuevoUsuario = {
+        uid: credencial.user.uid,
+        nombre: nombreLimpio,
+        email: correo,
+        rol: "usuario",
+        tipoParticipacion: "Voluntario",
+        disponible: true,
+        fechaRegistro: serverTimestamp(),
+      };
 
-      // Actualizar Firestore
-      await updateDoc(
-        referenciaUsuario,
-        {
-          tipoParticipacion: tipoParticipacion,
-          disponible: disponible,
-        }
+      await setDoc(
+        doc(db, "usuarios", credencial.user.uid),
+        nuevoUsuario
       );
 
-
-      // Actualizar la información mostrada
       setUser({
-        ...user,
-        tipoParticipacion: tipoParticipacion,
-        disponible: disponible,
+        ...nuevoUsuario,
+        email: correo,
       });
 
+      setTipoParticipacion("Voluntario");
+      setDisponible(true);
+      setNombre("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+
+      Alert.alert("¡Bienvenido!", "Tu cuenta fue creada correctamente.");
+    } catch (error) {
+      console.log("Error al registrar:", error);
+
+      let mensaje = "No se pudo crear la cuenta. Inténtalo de nuevo.";
+
+      if (error.code === "auth/email-already-in-use") {
+        mensaje = "Este correo ya está registrado. Inicia sesión.";
+      } else if (error.code === "auth/invalid-email") {
+        mensaje = "El correo electrónico no es válido.";
+      } else if (error.code === "auth/weak-password") {
+        mensaje = "La contraseña es demasiado débil.";
+      } else if (error.code === "auth/network-request-failed") {
+        mensaje = "Revisa tu conexión a internet.";
+      } else if (error.code === "permission-denied") {
+        mensaje =
+          "Firebase no permite guardar el perfil. Revisa las reglas de Firestore.";
+      }
+
+      Alert.alert("No se pudo registrar", mensaje);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const iniciarSesion = async () => {
+    const correo = email.trim().toLowerCase();
+
+    if (!correo || !password) {
+      Alert.alert(
+        "Campos incompletos",
+        "Escribe tu correo y contraseña."
+      );
+      return;
+    }
+
+    try {
+      setGuardando(true);
+
+      await signInWithEmailAndPassword(auth, correo, password);
+
+      setPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.log("Error al iniciar sesión:", error);
+
+      let mensaje = "No se pudo iniciar sesión.";
+
+      if (
+        error.code === "auth/invalid-credential" ||
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/user-not-found"
+      ) {
+        mensaje = "El correo o la contraseña son incorrectos.";
+      } else if (error.code === "auth/invalid-email") {
+        mensaje = "Escribe un correo válido.";
+      } else if (error.code === "auth/network-request-failed") {
+        mensaje = "Revisa tu conexión a internet.";
+      }
+
+      Alert.alert("Error de inicio de sesión", mensaje);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const abrirFormulario = () => {
+    setTipoParticipacion(user?.tipoParticipacion || "Voluntario");
+    setDisponible(
+      user?.disponible === undefined ? true : user.disponible
+    );
+    setMostrarFormulario(true);
+  };
+
+  const guardarInformacion = async () => {
+    if (!auth.currentUser) {
+      Alert.alert("Sesión cerrada", "Inicia sesión para editar tu perfil.");
+      return;
+    }
+
+    try {
+      setGuardando(true);
+
+      const referencia = doc(
+        db,
+        "usuarios",
+        auth.currentUser.uid
+      );
+
+      await updateDoc(referencia, {
+        tipoParticipacion,
+        disponible,
+      });
+
+      setUser((anterior) => ({
+        ...anterior,
+        tipoParticipacion,
+        disponible,
+      }));
 
       setMostrarFormulario(false);
 
-
-      Alert.alert(
-        'Información actualizada',
-        'Tu información de participación fue guardada correctamente.'
-      );
-
-
+      Alert.alert("¡Guardado!", "Tu perfil se actualizó correctamente.");
     } catch (error) {
-
-      console.log(
-        'Error actualizando perfil:',
-        error
-      );
-
+      console.log("Error al guardar el perfil:", error);
 
       Alert.alert(
-        'Error',
-        'No se pudo actualizar la información.'
+        "Error",
+        "No se pudo guardar la información. Verifica los permisos de Firestore."
       );
-
-
     } finally {
-
       setGuardando(false);
-
     }
-
   };
 
+  const cerrarSesion = () => {
+    Alert.alert(
+      "Cerrar sesión",
+      "¿Quieres salir de tu cuenta?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Cerrar sesión",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await signOut(auth);
+              setMostrarFormulario(false);
+              setPassword("");
+              setConfirmPassword("");
+            } catch (error) {
+              Alert.alert("Error", "No se pudo cerrar la sesión.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
-  // Pantalla de carga
   if (cargando) {
-
     return (
-
-      <View style={styles.loadingContainer}>
-
-        <ActivityIndicator
-          size="large"
-          color="#1D3D47"
-        />
-
-        <Text style={styles.loadingText}>
-          Cargando perfil...
-        </Text>
-
+      <View style={styles.cargandoContainer}>
+        <ActivityIndicator size="large" color="#1D3D47" />
+        <Text style={styles.textoCargando}>Cargando perfil...</Text>
       </View>
-
     );
-
   }
 
-
-  // Sin usuario
+  // REGISTRO E INICIO DE SESIÓN
   if (!user) {
-
     return (
+      <KeyboardAvoidingView
+        style={styles.contenedorPrincipal}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.authScroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.authHeader}>
+            <View style={styles.logoCirculo}>
+              <Ionicons
+                name="people"
+                size={38}
+                color="#FFFFFF"
+              />
+            </View>
 
-      <View style={styles.loadingContainer}>
+            <Text style={styles.tituloAuth}>La Esperanza</Text>
 
-        <Ionicons
-          name="person-circle-outline"
-          size={70}
-          color="#1D3D47"
-        />
+            <Text style={styles.subtituloAuth}>
+              Unidos para ayudar, preparados para reconstruir.
+            </Text>
+          </View>
 
-        <Text style={styles.loadingText}>
-          No se encontró información del perfil.
-        </Text>
+          <View style={styles.authCard}>
+            <Text style={styles.tituloCardAuth}>
+              {modoRegistro ? "Crear cuenta" : "Bienvenido de nuevo"}
+            </Text>
 
-      </View>
+            <Text style={styles.descripcionAuth}>
+              {modoRegistro
+                ? "Regístrate para formar parte de nuestra comunidad."
+                : "Inicia sesión para consultar tu perfil."}
+            </Text>
 
+            {modoRegistro && (
+              <>
+                <Text style={styles.labelInput}>Nombre completo</Text>
+
+                <View style={styles.inputContenedor}>
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color="#72858A"
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Escribe tu nombre"
+                    placeholderTextColor="#9AA8AB"
+                    value={nombre}
+                    onChangeText={setNombre}
+                    autoCapitalize="words"
+                    editable={!guardando}
+                  />
+                </View>
+              </>
+            )}
+
+            <Text style={styles.labelInput}>Correo electrónico</Text>
+
+            <View style={styles.inputContenedor}>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color="#72858A"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="ejemplo@correo.com"
+                placeholderTextColor="#9AA8AB"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!guardando}
+              />
+            </View>
+
+            <Text style={styles.labelInput}>Contraseña</Text>
+
+            <View style={styles.inputContenedor}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color="#72858A"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor="#9AA8AB"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!mostrarPassword}
+                autoCapitalize="none"
+                editable={!guardando}
+              />
+              <TouchableOpacity
+                onPress={() => setMostrarPassword(!mostrarPassword)}
+              >
+                <Ionicons
+                  name={
+                    mostrarPassword
+                      ? "eye-off-outline"
+                      : "eye-outline"
+                  }
+                  size={21}
+                  color="#72858A"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {modoRegistro && (
+              <>
+                <Text style={styles.labelInput}>
+                  Confirmar contraseña
+                </Text>
+
+                <View style={styles.inputContenedor}>
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={20}
+                    color="#72858A"
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Repite tu contraseña"
+                    placeholderTextColor="#9AA8AB"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!mostrarConfirmPassword}
+                    autoCapitalize="none"
+                    editable={!guardando}
+                  />
+                  <TouchableOpacity
+                    onPress={() =>
+                      setMostrarConfirmPassword(
+                        !mostrarConfirmPassword
+                      )
+                    }
+                  >
+                    <Ionicons
+                      name={
+                        mostrarConfirmPassword
+                          ? "eye-off-outline"
+                          : "eye-outline"
+                      }
+                      size={21}
+                      color="#72858A"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.botonPrincipal,
+                guardando && styles.botonDeshabilitado,
+              ]}
+              onPress={modoRegistro ? registrarUsuario : iniciarSesion}
+              disabled={guardando}
+              activeOpacity={0.8}
+            >
+              {guardando ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.textoBotonPrincipal}>
+                  {modoRegistro ? "Crear mi cuenta" : "Iniciar sesión"}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.cambiarModo}>
+              <Text style={styles.textoCambiarModo}>
+                {modoRegistro
+                  ? "¿Ya tienes una cuenta?"
+                  : "¿Todavía no tienes una cuenta?"}
+              </Text>
+
+              <TouchableOpacity
+                disabled={guardando}
+                onPress={() => {
+                  setModoRegistro(!modoRegistro);
+                  setPassword("");
+                  setConfirmPassword("");
+                }}
+              >
+                <Text style={styles.enlaceCambiarModo}>
+                  {modoRegistro ? "Inicia sesión" : "Regístrate"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
-
   }
 
-
+  // PERFIL DEL USUARIO AUTENTICADO
   return (
-
     <ScrollView
-      style={styles.container}
+      style={styles.contenedorPrincipal}
+      contentContainerStyle={styles.perfilScroll}
       showsVerticalScrollIndicator={false}
     >
-
-
-      {/* Tarjeta del usuario */}
-
-      <View style={styles.userCard}>
-
-        <Ionicons
-          name="person-circle"
-          size={58}
-          color="#1D3D47"
-        />
-
-
-        <View style={styles.userInfo}>
-
-          <Text style={styles.userNombre}>
-            {user.nombre}
-          </Text>
-
-          <Text style={styles.userSub}>
-            {user.email}
-          </Text>
-
-        </View>
-
-      </View>
-
-
-      {/* Rol comunitario */}
-
-      <Text style={styles.seccion}>
-        Mi rol comunitario
-      </Text>
-
-
-      <View style={styles.rolCard}>
-
-        <Ionicons
-          name="shield-checkmark"
-          size={28}
-          color="#2E8B57"
-        />
-
-
-        <View style={{ marginLeft: 12 }}>
-
-          <Text style={styles.userSub}>
-            Ayudas a hacer de La Esperanza un lugar más seguro
-          </Text>
-
-        </View>
-
-      </View>
-
-
-      {/* Información de voluntariado */}
-
-      <View style={styles.tituloSeccionContainer}>
-
-        <Text style={styles.seccion}>
-          Información de voluntariado
+      <View style={styles.encabezadoPerfil}>
+        <Text style={styles.tituloPerfil}>Mi perfil</Text>
+        <Text style={styles.subtituloPerfil}>
+          Tu espacio en la comunidad La Esperanza
         </Text>
+      </View>
 
+      <View style={styles.tarjetaUsuario}>
+        <View style={styles.avatar}>
+          <Ionicons
+            name="person"
+            size={35}
+            color="#1D3D47"
+          />
+        </View>
+
+        <View style={styles.datosUsuario}>
+          <Text style={styles.nombreUsuario}>
+            {user.nombre || "Usuario"}
+          </Text>
+          <Text style={styles.correoUsuario}>
+            {user.email || "Sin correo registrado"}
+          </Text>
+          <View style={styles.etiquetaUsuario}>
+            <Text style={styles.textoEtiquetaUsuario}>
+              Miembro de La Esperanza
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.encabezadoSeccion}>
+        <Text style={styles.tituloSeccion}>Mi participación</Text>
 
         <TouchableOpacity
           style={styles.botonEditar}
           onPress={abrirFormulario}
+          activeOpacity={0.8}
         >
-
           <Ionicons
             name="create-outline"
-            size={18}
+            size={17}
             color="#1D3D47"
           />
-
-          <Text style={styles.textoEditar}>
-            Editar
-          </Text>
-
+          <Text style={styles.textoBotonEditar}>Editar</Text>
         </TouchableOpacity>
-
       </View>
 
+      <View style={styles.tarjetaInfo}>
+        <View style={styles.filaInfo}>
+          <View style={styles.iconoInfo}>
+            <Ionicons
+              name="people-outline"
+              size={23}
+              color="#1D3D47"
+            />
+          </View>
 
-      <View style={styles.infoCard}>
-
-
-        {/* Tipo de participación */}
-
-        <View style={styles.infoRow}>
-
-          <Ionicons
-            name="people-outline"
-            size={22}
-            color="#1D3D47"
-          />
-
-
-          <View style={styles.infoTextContainer}>
-
-            <Text style={styles.infoTitle}>
+          <View style={styles.contenidoInfo}>
+            <Text style={styles.etiquetaInfo}>
               Tipo de participación
             </Text>
-
-
-            <Text style={styles.infoValue}>
-              {user.tipoParticipacion || 'Voluntario'}
+            <Text style={styles.valorInfo}>
+              {user.tipoParticipacion || "Voluntario"}
             </Text>
-
           </View>
-
         </View>
 
+        <View style={styles.separador} />
 
-        {/* Disponibilidad */}
+        <View style={styles.filaInfo}>
+          <View style={styles.iconoInfo}>
+            <Ionicons
+              name="calendar-outline"
+              size={23}
+              color="#1D3D47"
+            />
+          </View>
 
-        <View style={styles.infoRow}>
+          <View style={styles.contenidoInfo}>
+            <Text style={styles.etiquetaInfo}>Disponibilidad</Text>
+            <Text style={styles.valorInfo}>
+              {user.disponible === false
+                ? "No disponible"
+                : "Disponible para ayudar"}
+            </Text>
+          </View>
 
-          <Ionicons
-            name="radio-outline"
-            size={22}
-            color={
-              user.disponible
-                ? '#2E8B57'
-                : '#D32F2F'
-            }
+          <View
+            style={[
+              styles.puntoEstado,
+              {
+                backgroundColor:
+                  user.disponible === false ? "#B85C5C" : "#4A9B76",
+              },
+            ]}
           />
-
-
-          <View style={styles.infoTextContainer}>
-
-            <Text style={styles.infoTitle}>
-              Disponibilidad
-            </Text>
-
-
-            <Text
-              style={[
-                styles.infoValue,
-                {
-                  color: user.disponible
-                    ? '#2E8B57'
-                    : '#D32F2F',
-                },
-              ]}
-            >
-
-              {user.disponible
-                ? 'Disponible para ayudar'
-                : 'No disponible'}
-
-            </Text>
-
-          </View>
-
         </View>
-
       </View>
 
-
-      {/* FORMULARIO */}
-
       {mostrarFormulario && (
-
-        <View style={styles.formulario}>
-
-          <Text style={styles.formularioTitulo}>
-            Editar información
+        <View style={styles.tarjetaFormulario}>
+          <Text style={styles.tituloFormulario}>
+            Editar participación
           </Text>
 
-
-          <Text style={styles.formularioLabel}>
-            Tipo de participación
+          <Text style={styles.descripcionFormulario}>
+            Cuéntanos cómo te gustaría colaborar.
           </Text>
 
+          <Text style={styles.labelRol}>Tipo de participación</Text>
 
-          <View style={styles.opcionesContainer}>
+          {ROLES.map((rol) => {
+            const seleccionado = tipoParticipacion === rol;
 
-            {tiposParticipacion.map((tipo) => {
-
-              const seleccionado =
-                tipoParticipacion === tipo;
-
-
-              return (
-
-                <TouchableOpacity
-                  key={tipo}
+            return (
+              <TouchableOpacity
+                key={rol}
+                style={[
+                  styles.opcionRol,
+                  seleccionado && styles.opcionRolSeleccionada,
+                ]}
+                onPress={() => setTipoParticipacion(rol)}
+                activeOpacity={0.8}
+              >
+                <Text
                   style={[
-                    styles.opcion,
-                    seleccionado &&
-                      styles.opcionSeleccionada,
+                    styles.textoOpcionRol,
+                    seleccionado && styles.textoOpcionSeleccionada,
                   ]}
-                  onPress={() =>
-                    setTipoParticipacion(tipo)
-                  }
                 >
+                  {rol}
+                </Text>
 
-                  <Ionicons
-                    name={
-                      seleccionado
-                        ? 'checkmark-circle'
-                        : 'ellipse-outline'
-                    }
-                    size={20}
-                    color={
-                      seleccionado
-                        ? '#1D3D47'
-                        : '#777'
-                    }
-                  />
+                <Ionicons
+                  name={
+                    seleccionado
+                      ? "radio-button-on"
+                      : "radio-button-off"
+                  }
+                  size={21}
+                  color={seleccionado ? "#1D3D47" : "#9AA8AB"}
+                />
+              </TouchableOpacity>
+            );
+          })}
 
+          <Text style={styles.labelRol}>¿Estás disponible?</Text>
 
-                  <Text
-                    style={[
-                      styles.opcionTexto,
-                      seleccionado &&
-                        styles.opcionTextoSeleccionado,
-                    ]}
-                  >
-                    {tipo}
-                  </Text>
-
-                </TouchableOpacity>
-
-              );
-
-            })}
-
-          </View>
-
-
-          {/* Disponibilidad */}
-
-          <Text style={styles.formularioLabel}>
-            Disponibilidad
-          </Text>
-
-
-          <View style={styles.disponibilidadContainer}>
-
-
+          <View style={styles.filaDisponibilidad}>
             <TouchableOpacity
               style={[
-                styles.disponibilidadBoton,
-                disponible &&
-                  styles.disponibleSeleccionado,
+                styles.botonDisponibilidad,
+                disponible && styles.disponibilidadActiva,
               ]}
               onPress={() => setDisponible(true)}
+              activeOpacity={0.8}
             >
-
               <Ionicons
-                name="checkmark-circle"
-                size={22}
-                color={
-                  disponible
-                    ? '#2E8B57'
-                    : '#777'
-                }
+                name="checkmark-circle-outline"
+                size={19}
+                color={disponible ? "#FFFFFF" : "#1D3D47"}
               />
-
-
               <Text
                 style={[
-                  styles.disponibilidadTexto,
-                  disponible &&
-                    styles.disponibleTexto,
+                  styles.textoDisponibilidad,
+                  disponible && styles.textoDisponibilidadActivo,
                 ]}
               >
-                Disponible
+                Sí, disponible
               </Text>
-
             </TouchableOpacity>
-
 
             <TouchableOpacity
               style={[
-                styles.disponibilidadBoton,
-                !disponible &&
-                  styles.noDisponibleSeleccionado,
+                styles.botonDisponibilidad,
+                !disponible && styles.disponibilidadActiva,
               ]}
               onPress={() => setDisponible(false)}
+              activeOpacity={0.8}
             >
-
               <Ionicons
-                name="close-circle"
-                size={22}
-                color={
-                  !disponible
-                    ? '#D32F2F'
-                    : '#777'
-                }
+                name="close-circle-outline"
+                size={19}
+                color={!disponible ? "#FFFFFF" : "#1D3D47"}
               />
-
-
               <Text
                 style={[
-                  styles.disponibilidadTexto,
-                  !disponible &&
-                    styles.noDisponibleTexto,
+                  styles.textoDisponibilidad,
+                  !disponible && styles.textoDisponibilidadActivo,
                 ]}
               >
                 No disponible
               </Text>
-
             </TouchableOpacity>
-
           </View>
 
-
-          {/* Botones */}
-
-          <View style={styles.botonesFormulario}>
-
+          <View style={styles.filaBotonesFormulario}>
             <TouchableOpacity
               style={styles.botonCancelar}
-              onPress={() =>
-                setMostrarFormulario(false)
-              }
+              onPress={() => setMostrarFormulario(false)}
               disabled={guardando}
             >
-
-              <Text style={styles.textoCancelar}>
+              <Text style={styles.textoBotonCancelar}>
                 Cancelar
               </Text>
-
             </TouchableOpacity>
 
-
             <TouchableOpacity
-              style={styles.botonGuardar}
+              style={[
+                styles.botonGuardar,
+                guardando && styles.botonDeshabilitado,
+              ]}
               onPress={guardarInformacion}
               disabled={guardando}
             >
-
               {guardando ? (
-
-                <ActivityIndicator
-                  size="small"
-                  color="#FFFFFF"
-                />
-
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
-
-                <Text style={styles.textoGuardar}>
-                  Guardar cambios
+                <Text style={styles.textoBotonGuardar}>
+                  Guardar
                 </Text>
-
               )}
-
             </TouchableOpacity>
-
           </View>
-
         </View>
-
       )}
 
+      <View style={styles.encabezadoSeccion}>
+        <Text style={styles.tituloSeccion}>Zonas de apoyo</Text>
+      </View>
 
-      {/* Zonas */}
-
-      <Text style={styles.seccion}>
-        Zonas de alto flujo de personas
+      <Text style={styles.descripcionZonas}>
+        Algunos puntos de referencia de nuestra comunidad.
       </Text>
-
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.listaZonas}
       >
+        {ZONAS.map((zona, index) => (
+          <View style={styles.tarjetaZona} key={zona.nombre}>
+            <View style={styles.iconoZona}>
+              <Ionicons
+                name={
+                  index === 0
+                    ? "shield-checkmark-outline"
+                    : index === 1
+                    ? "home-outline"
+                    : "restaurant-outline"
+                }
+                size={25}
+                color="#1D3D47"
+              />
+            </View>
 
-        {zonas.map((zona, i) => (
+            <Text style={styles.nombreZona}>{zona.nombre}</Text>
 
-          <View
-            key={i}
-            style={styles.zonaCard}
-          >
-
-            <Ionicons
-              name="location"
-              size={20}
-              color="#1D3D47"
-            />
-
-
-            <Text style={styles.zonaNombre}>
-              {zona.nombre}
-            </Text>
-
-
-            {zona.distancia ? (
-
-              <Text style={styles.userSub}>
+            {zona.distancia !== "" && (
+              <Text style={styles.distanciaZona}>
                 {zona.distancia}
               </Text>
-
-            ) : null}
-
+            )}
           </View>
-
         ))}
-
       </ScrollView>
 
+      <TouchableOpacity
+        style={styles.botonCerrarSesion}
+        onPress={cerrarSesion}
+        activeOpacity={0.8}
+      >
+        <Ionicons
+          name="log-out-outline"
+          size={20}
+          color="#B64C4C"
+        />
+        <Text style={styles.textoCerrarSesion}>
+          Cerrar sesión
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.piePerfil}>
+        La Esperanza · Unidos para ayudar
+      </Text>
     </ScrollView>
-
   );
-
 }
 
-
 const styles = StyleSheet.create({
-
-  container: {
+  contenedorPrincipal: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#F5F8F9",
   },
 
-  loadingContainer: {
+  cargandoContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: "#F5F8F9",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  loadingText: {
+  textoCargando: {
     marginTop: 12,
+    color: "#1D3D47",
+    fontSize: 14,
+  },
+
+  // Registro e inicio de sesión
+  authScroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 22,
+    paddingVertical: 30,
+  },
+
+  authHeader: {
+    alignItems: "center",
+    marginBottom: 25,
+  },
+
+  logoCirculo: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: "#1D3D47",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 13,
+  },
+
+  tituloAuth: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#1D3D47",
+  },
+
+  subtituloAuth: {
+    fontSize: 14,
+    color: "#72858A",
+    textAlign: "center",
+    marginTop: 7,
+    lineHeight: 21,
+  },
+
+  authCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: "#E6EEF0",
+    elevation: 3,
+    shadowColor: "#1D3D47",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+  },
+
+  tituloCardAuth: {
+    fontSize: 23,
+    fontWeight: "800",
+    color: "#1D3D47",
+  },
+
+  descripcionAuth: {
+    color: "#72858A",
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 7,
+    marginBottom: 18,
+  },
+
+  labelInput: {
+    color: "#1D3D47",
+    fontWeight: "700",
+    fontSize: 13,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+
+  inputContenedor: {
+    minHeight: 51,
+    borderWidth: 1,
+    borderColor: "#DCE6E8",
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 13,
+    backgroundColor: "#FBFDFD",
+  },
+
+  input: {
+    flex: 1,
+    color: "#243E44",
+    fontSize: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+
+  botonPrincipal: {
+    backgroundColor: "#1D3D47",
+    minHeight: 51,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 24,
+  },
+
+  botonDeshabilitado: {
+    opacity: 0.65,
+  },
+
+  textoBotonPrincipal: {
+    color: "#FFFFFF",
     fontSize: 15,
-    color: '#555',
-    textAlign: 'center',
+    fontWeight: "700",
   },
 
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EAF2F8',
-    borderRadius: 15,
-    padding: 15,
+  cambiarModo: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+    gap: 5,
   },
 
-  userInfo: {
-    marginLeft: 12,
+  textoCambiarModo: {
+    color: "#72858A",
+    fontSize: 13,
+  },
+
+  enlaceCambiarModo: {
+    color: "#1D3D47",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  // Perfil
+  perfilScroll: {
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 30,
+  },
+
+  encabezadoPerfil: {
+    marginBottom: 22,
+  },
+
+  tituloPerfil: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#1D3D47",
+  },
+
+  subtituloPerfil: {
+    fontSize: 14,
+    color: "#72858A",
+    marginTop: 5,
+    lineHeight: 20,
+  },
+
+  tarjetaUsuario: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5ECEE",
+    marginBottom: 25,
+  },
+
+  avatar: {
+    width: 65,
+    height: 65,
+    borderRadius: 33,
+    backgroundColor: "#DCECEF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+
+  datosUsuario: {
     flex: 1,
   },
 
-  userNombre: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#000',
+  nombreUsuario: {
+    color: "#1D3D47",
+    fontSize: 18,
+    fontWeight: "800",
   },
 
-  userSub: {
-    fontSize: 12,
-    color: '#555',
+  correoUsuario: {
+    color: "#72858A",
+    fontSize: 13,
     marginTop: 5,
   },
 
-  seccion: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 8,
-    color: '#1D3D47',
+  etiquetaUsuario: {
+    alignSelf: "flex-start",
+    backgroundColor: "#EAF3F4",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginTop: 9,
   },
 
-  tituloSeccionContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  textoEtiquetaUsuario: {
+    color: "#1D3D47",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  encabezadoSeccion: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 13,
+  },
+
+  tituloSeccion: {
+    color: "#1D3D47",
+    fontSize: 19,
+    fontWeight: "800",
   },
 
   botonEditar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DCECEF",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 5,
   },
 
-  textoEditar: {
-    marginLeft: 4,
-    color: '#1D3D47',
+  textoBotonEditar: {
+    color: "#1D3D47",
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "700",
   },
 
-  rolCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0FFF4',
-    borderRadius: 15,
-    padding: 20,
-  },
-
-  infoCard: {
-    backgroundColor: '#F8FAFA',
-    borderRadius: 15,
-    padding: 20,
-  },
-
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-
-  infoTextContainer: {
-    marginLeft: 12,
-  },
-
-  infoTitle: {
-    fontSize: 12,
-    color: '#777',
-  },
-
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1D3D47',
-    marginTop: 2,
-  },
-
-  formulario: {
-    backgroundColor: '#F8FAFA',
-    borderRadius: 15,
-    padding: 18,
-    marginTop: 12,
+  tarjetaInfo: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 17,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: "#E5ECEE",
+    marginBottom: 26,
   },
 
-  formularioTitulo: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#1D3D47',
-    marginBottom: 15,
+  filaInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
   },
 
-  formularioLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1D3D47',
-    marginBottom: 8,
+  iconoInfo: {
+    width: 45,
+    height: 45,
+    borderRadius: 13,
+    backgroundColor: "#EAF3F4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 13,
+  },
+
+  contenidoInfo: {
+    flex: 1,
+  },
+
+  etiquetaInfo: {
+    color: "#72858A",
+    fontSize: 12,
+  },
+
+  valorInfo: {
+    color: "#1D3D47",
+    fontSize: 14,
+    fontWeight: "700",
     marginTop: 5,
   },
 
-  opcionesContainer: {
-    marginBottom: 15,
+  separador: {
+    height: 1,
+    backgroundColor: "#EDF1F2",
   },
 
-  opcion: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#FFFFFF',
+  puntoEstado: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginLeft: 8,
+  },
+
+  // Formulario de edición
+  tarjetaFormulario: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 17,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 10,
-    marginBottom: 8,
+    borderColor: "#DCE6E8",
+    marginBottom: 26,
   },
 
-  opcionSeleccionada: {
-    borderColor: '#1D3D47',
-    backgroundColor: '#EAF2F8',
+  tituloFormulario: {
+    fontSize: 19,
+    color: "#1D3D47",
+    fontWeight: "800",
   },
 
-  opcionTexto: {
-    marginLeft: 10,
-    fontSize: 14,
-    color: '#555',
-  },
-
-  opcionTextoSeleccionado: {
-    color: '#1D3D47',
-    fontWeight: '600',
-  },
-
-  disponibilidadContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-
-  disponibilidadBoton: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-  },
-
-  disponibleSeleccionado: {
-    borderColor: '#2E8B57',
-    backgroundColor: '#F0FFF4',
-  },
-
-  noDisponibleSeleccionado: {
-    borderColor: '#D32F2F',
-    backgroundColor: '#FFF5F5',
-  },
-
-  disponibilidadTexto: {
-    marginLeft: 6,
+  descripcionFormulario: {
+    color: "#72858A",
     fontSize: 13,
-    color: '#777',
-    fontWeight: '600',
+    lineHeight: 19,
+    marginTop: 6,
+    marginBottom: 17,
   },
 
-  disponibleTexto: {
-    color: '#2E8B57',
+  labelRol: {
+    color: "#1D3D47",
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 10,
+    marginTop: 5,
   },
 
-  noDisponibleTexto: {
-    color: '#D32F2F',
+  opcionRol: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: "#E2EAEC",
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
   },
 
-  botonesFormulario: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  opcionRolSeleccionada: {
+    borderColor: "#1D3D47",
+    backgroundColor: "#EDF5F6",
+  },
+
+  textoOpcionRol: {
+    fontSize: 13,
+    color: "#536B71",
+  },
+
+  textoOpcionSeleccionada: {
+    color: "#1D3D47",
+    fontWeight: "700",
+  },
+
+  filaDisponibilidad: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 18,
+  },
+
+  botonDisponibilidad: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "#DCE6E8",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+    gap: 5,
+  },
+
+  disponibilidadActiva: {
+    backgroundColor: "#1D3D47",
+    borderColor: "#1D3D47",
+  },
+
+  textoDisponibilidad: {
+    color: "#1D3D47",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  textoDisponibilidadActivo: {
+    color: "#FFFFFF",
+  },
+
+  filaBotonesFormulario: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 5,
   },
 
   botonCancelar: {
-    width: '35%',
-    paddingVertical: 13,
-    borderRadius: 10,
+    flex: 1,
+    minHeight: 47,
+    borderRadius: 11,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
+    borderColor: "#DCE6E8",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  textoCancelar: {
-    color: '#555',
-    fontWeight: '600',
+  textoBotonCancelar: {
+    color: "#536B71",
+    fontWeight: "700",
   },
 
   botonGuardar: {
-    width: '60%',
-    paddingVertical: 13,
-    borderRadius: 10,
-    backgroundColor: '#1D3D47',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flex: 1,
+    minHeight: 47,
+    borderRadius: 11,
+    backgroundColor: "#1D3D47",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  textoGuardar: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+  textoBotonGuardar: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 
-  zonaCard: {
-    width: 110,
-    padding: 10,
-    marginRight: 10,
+  // Zonas
+  descripcionZonas: {
+    color: "#72858A",
+    fontSize: 13,
+    marginTop: -5,
+    marginBottom: 14,
+    lineHeight: 19,
+  },
+
+  listaZonas: {
+    paddingBottom: 8,
+    gap: 12,
+  },
+
+  tarjetaZona: {
+    width: 165,
+    minHeight: 145,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 15,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 15,
-    alignItems: 'center',
+    borderColor: "#E5ECEE",
   },
 
-  zonaNombre: {
+  iconoZona: {
+    width: 45,
+    height: 45,
+    borderRadius: 13,
+    backgroundColor: "#DCECEF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 13,
+  },
+
+  nombreZona: {
+    color: "#1D3D47",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+
+  distanciaZona: {
+    color: "#72858A",
     fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 4,
+    marginTop: 6,
   },
 
-});
+  botonCerrarSesion: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F0DCDC",
+    minHeight: 48,
+    borderRadius: 12,
+    marginTop: 28,
+    gap: 8,
+  },
 
+  textoCerrarSesion: {
+    color: "#B64C4C",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  piePerfil: {
+    textAlign: "center",
+    color: "#8A9A9E",
+    fontSize: 12,
+    marginTop: 20,
+  },
+});

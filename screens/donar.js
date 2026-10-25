@@ -1,5 +1,7 @@
-
 import React, { useState } from 'react';
+import LogoD1 from '../assets/img/Logo-d1.svg';
+import LogoAra from '../assets/img/Logo-ara.svg';
+import LogoExito from '../assets/img/Logo-exito.svg';
 import {
   View,
   Text,
@@ -8,10 +10,10 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  Linking,
 } from 'react-native';
 
 const Donar = () => {
-
   const [totalLivesReached, setTotalLivesReached] = useState(0);
 
   // Tipo de donación
@@ -89,7 +91,7 @@ const Donar = () => {
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-
+      {/* Mensaje de éxito */}
       {successMessage !== '' && (
         <View style={styles.toastNotification}>
           <Text style={styles.toastText}>
@@ -98,12 +100,9 @@ const Donar = () => {
         </View>
       )}
 
-
       {/* Tarjeta de métricas */}
       <View style={styles.heroCard}>
-
         <View style={styles.heroContent}>
-
           <Text style={styles.heroLabel}>
             TOTAL LIVES REACHED
           </Text>
@@ -111,29 +110,27 @@ const Donar = () => {
           <Text style={styles.heroValue}>
             {totalLivesReached.toLocaleString('en-US')}
           </Text>
-
-
-
-          </View>
-
         </View>
-      {/* Tarjeta de donación */}
+      </View>
+
+      {/* Tarjeta principal de donación */}
       <View style={styles.donationCard}>
 
         {/* Selector de tipo */}
         <View style={styles.toggleContainer}>
-
           <TouchableOpacity
             style={[
               styles.toggleButton,
               donationType === 'monetary' && styles.toggleActive,
             ]}
             onPress={() => setDonationType('monetary')}
+            activeOpacity={0.7}
           >
             <Text
               style={[
                 styles.toggleText,
-                donationType === 'monetary' && styles.toggleTextActive,
+                donationType === 'monetary' &&
+                  styles.toggleTextActive,
               ]}
             >
               💲 Monto
@@ -146,34 +143,31 @@ const Donar = () => {
               donationType === 'inkind' && styles.toggleActive,
             ]}
             onPress={() => setDonationType('inkind')}
+            activeOpacity={0.7}
           >
             <Text
               style={[
                 styles.toggleText,
-                donationType === 'inkind' && styles.toggleTextActive,
+                donationType === 'inkind' &&
+                  styles.toggleTextActive,
               ]}
             >
               📦 Insumos
             </Text>
           </TouchableOpacity>
-
         </View>
 
         {/* DONACIÓN MONETARIA */}
         {donationType === 'monetary' ? (
           <>
-
             <Text style={styles.sectionTitle}>
-              selecciona un monto para donar (COP)
+              Selecciona un monto para donar (COP)
             </Text>
 
-            {/* Montos */}
+            {/* Montos disponibles */}
             <View style={styles.gridAmounts}>
-
               {amounts.map((item) => {
-
-                const isSelected =
-                  selectedAmount === item.value;
+                const isSelected = selectedAmount === item.value;
 
                 return (
                   <TouchableOpacity
@@ -182,11 +176,9 @@ const Donar = () => {
                       styles.amountCard,
                       isSelected && styles.amountCardSelected,
                     ]}
-                    onPress={() =>
-                      handleSelectAmount(item.value)
-                    }
+                    onPress={() => handleSelectAmount(item.value)}
+                    activeOpacity={0.7}
                   >
-
                     {item.popular && (
                       <View style={styles.popularTag}>
                         <Text style={styles.popularText}>
@@ -198,22 +190,18 @@ const Donar = () => {
                     <Text
                       style={[
                         styles.amountText,
-                        isSelected &&
-                          styles.amountTextSelected,
+                        isSelected && styles.amountTextSelected,
                       ]}
                     >
                       {item.label}
                     </Text>
-
                   </TouchableOpacity>
                 );
               })}
-
             </View>
 
             {/* Monto personalizado */}
             <View style={styles.customAmountContainer}>
-
               <View
                 style={[
                   styles.inputWrapper,
@@ -221,7 +209,6 @@ const Donar = () => {
                     styles.inputWrapperSelected,
                 ]}
               >
-
                 <Text style={styles.currencySymbol}>
                   $
                 </Text>
@@ -231,51 +218,101 @@ const Donar = () => {
                   placeholderTextColor="#94a3b8"
                   value={customAmount}
                   onChangeText={handleCustomAmountChange}
-                  onFocus={() =>
-                    setSelectedAmount('custom')
-                  }
+                  onFocus={() => setSelectedAmount('custom')}
                   keyboardType="numeric"
                   style={styles.customInput}
                 />
-
               </View>
-
             </View>
 
-            {/* Botón */}
+            {/* Botón para completar donación */}
             <TouchableOpacity
               style={styles.submitButton}
               onPress={handleCompleteDonation}
+              activeOpacity={0.8}
             >
               <Text style={styles.submitButtonText}>
-                Completar Donación ➔
+                Completar Donación
               </Text>
             </TouchableOpacity>
-
+            
           </>
+
+          
         ) : (
-
+          
           /* DONACIÓN DE INSUMOS */
-          <View style={styles.inkindContainer}>
-
-            <Text style={styles.inkindText}>
-              Gracias por tu interés en donar insumos físicos.
-              Por favor ponte en contacto con nuestro equipo local.
-              Llama al número: +57 123 456 789 o envía un correo a: info@organizacion.org
+          <View style={styles.supermercadoContainer}>
+            <Text style={styles.supermercadoText}>
+              En este apartado podras encontrar los supermercados y tiendas de conveniencia para que puedas verificar productos de primera necesidad que puedes donar a las personas afectadas por la emergencia.
             </Text>
-
           </View>
-
         )}
-
       </View>
 
+      {/* TARJETAS INFORMATIVAS FUERA DE LA TARJETA PRINCIPAL */}
+      {donationType === 'inkind' && (
+        <View style={styles.infoContainer}>
+
+          {/* Caja de contacto */}
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>Tiendas D1</Text>
+
+            <LogoD1 width={70} height={70} />
+
+            <TouchableOpacity
+              onPress={() => Linking.openURL('https://www.d1.com.co/')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.linkText}>
+                https://www.d1.com.co/
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Caja de puntos de entrega */}
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>
+              Tiendas Ara
+            </Text>
+
+            <LogoAra width={70} height={70} />
+
+            <TouchableOpacity
+              onPress={() => Linking.openURL('https://www.tiendasara.com/')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.linkText}>
+                https://www.tiendasara.com/
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Caja de insumos necesarios */}
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>
+              Supermercados Exito
+            </Text>
+
+            <LogoExito width={70} height={70} />
+
+            <TouchableOpacity
+              onPress={() => Linking.openURL('https://www.exito.com/')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.linkText}>
+                https://www.exito.com/
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+        </View>
+      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-
   screen: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -323,7 +360,7 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
 
-  /* Tarjeta principal */
+  /* Tarjeta de métricas */
   heroCard: {
     backgroundColor: '#002244',
     borderRadius: 16,
@@ -381,7 +418,7 @@ const styles = StyleSheet.create({
     opacity: 0.15,
   },
 
-  /* Tarjeta de donación */
+  /* Tarjeta principal de donación */
   donationCard: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -464,7 +501,7 @@ const styles = StyleSheet.create({
     color: '#1d4ed8',
   },
 
-  /* Popular */
+  /* Etiqueta popular */
   popularTag: {
     position: 'absolute',
     top: -8,
@@ -524,7 +561,7 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
 
-  /* Botón */
+  /* Botón de donación */
   submitButton: {
     width: '100%',
     paddingVertical: 14,
@@ -540,19 +577,56 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* Insumos */
-  inkindContainer: {
+  /* Texto de donación de insumos */
+  supermercadoContainer: {
     paddingVertical: 20,
   },
 
-  inkindText: {
+  supermercadoText: {
     textAlign: 'center',
     color: '#64748b',
     fontSize: 14,
     lineHeight: 20,
   },
 
+  /* Contenedor de las tarjetas externas */
+  infoContainer: {
+    marginTop: 16,
+    gap: 14,
+  },
+
+  /* Tarjetas informativas */
+  infoBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#000',
+  },
+
+  infoTitle: {
+    fontSize: 20,
+    fontStyle: 'bold',
+    color: '#1D3D47',
+    marginBottom: 10,
+  },
+
+  infoText: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    fontSize: 13,
+    color: '#64748b',
+    lineHeight: 22,
+  },
+
+  linkText: {
+    marginTop: 10,
+    fontSize: 15,
+    color: '#1d4ed8',
+    fontStyle: 'underline',
+  },
+  
+
 });
 
 export default Donar;
-

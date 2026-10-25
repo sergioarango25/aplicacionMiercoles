@@ -64,6 +64,7 @@ export default function Help() {
       Alert.alert(
         "Falta información",
         "Selecciona el tipo de ayuda que necesitas."
+
       );
       return;
     }
@@ -128,22 +129,15 @@ export default function Help() {
 
         <View style={styles.iconHeader}>
           <Ionicons
-            name="help-circle"
-            size={32}
-            color="#FFFFFF"
+            name="alert-circle-outline"
+            size={50}
+            color="#0f172a"
           />
         </View>
 
         <Text style={styles.title}>
           Solicitar ayuda
         </Text>
-
-        <Text style={styles.subtitle}>
-          Si necesitas ayuda después de un terremoto,
-          describe tu situación para que voluntarios y
-          personal especializado puedan ayudarte.
-        </Text>
-
       </View>
 
       {/* Información */}
@@ -152,7 +146,7 @@ export default function Help() {
         <Ionicons
           name="information-circle-outline"
           size={24}
-          color="#D97706"
+          color="#0f172a"
         />
 
         <Text style={styles.infoText}>
@@ -187,7 +181,7 @@ export default function Help() {
               color={
                 tipoAyuda === tipo.nombre
                   ? "#FFFFFF"
-                  : "#D97706"
+                  : "#1d4ed8"
               }
             />
 
@@ -240,7 +234,7 @@ export default function Help() {
 
         <Ionicons
           name="send-outline"
-          size={21}
+          size={25}
           color="#FFFFFF"
         />
 
@@ -257,8 +251,8 @@ export default function Help() {
 
         <Ionicons
           name="warning-outline"
-          size={22}
-          color="#B45309"
+          size={35}
+          color="#0f172a"
         />
 
         <Text style={styles.warningText}>
@@ -292,8 +286,8 @@ const styles = StyleSheet.create({
   iconHeader: {
     width: 65,
     height: 65,
-    borderRadius: 33,
-    backgroundColor: "#D97706",
+    borderRadius: 50,
+    BackgroundColor: "#E0E7FF",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
@@ -304,14 +298,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#222",
     textAlign: "center",
-  },
-
-  subtitle: {
-    fontSize: 15,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 22,
-    marginTop: 8,
   },
 
   infoBox: {
@@ -326,7 +312,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: "#7C4A03",
+    color: "#000",
     marginLeft: 10,
     lineHeight: 20,
   },
@@ -359,8 +345,8 @@ const styles = StyleSheet.create({
   },
 
   optionSelected: {
-    backgroundColor: "#D97706",
-    borderColor: "#D97706",
+    backgroundColor: "#1d4ed8",
+    borderColor: "#1d4ed8",
   },
 
   optionText: {
@@ -396,7 +382,7 @@ const styles = StyleSheet.create({
 
   button: {
     height: 52,
-    backgroundColor: "#D97706",
+    backgroundColor: "#0f172a",
     borderRadius: 13,
     flexDirection: "row",
     justifyContent: "center",

@@ -620,9 +620,7 @@ export default function Map() {
           Mapa de emergencia
         </Text>
 
-        <Text style={styles.subtitulo}>
-          Guarda lugares importantes para encontrarlos rápidamente.
-        </Text>
+
 
       </View>
 
@@ -987,16 +985,9 @@ const styles = StyleSheet.create({
   },
 
   titulo: {
-    fontSize: 25,
+    fontSize: 35,
     fontWeight: "bold",
     color: "#222222",
-  },
-
-  subtitulo: {
-    marginTop: 5,
-    fontSize: 14,
-    color: "#666666",
-    lineHeight: 20,
   },
 
   mapaContainer: {

@@ -6,6 +6,10 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ImageBackground,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -14,7 +18,6 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig.js";
 
 export default function InicioRegistro() {
-
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,8 +28,10 @@ export default function InicioRegistro() {
 
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [mostrarConfirmPassword, setMostrarConfirmPassword] = useState(false);
+  const [cargando, setCargando] = useState(false);
 
   const handleRegister = async () => {
+    if (cargando) return;
 
     setError("");
     setMensaje("");
@@ -34,7 +39,6 @@ export default function InicioRegistro() {
     const nombreLimpio = nombre.trim();
     const correo = email.trim();
 
-    // Validar campos vacíos
     if (
       nombreLimpio === "" ||
       correo === "" ||
@@ -74,17 +78,16 @@ export default function InicioRegistro() {
       return;
     }
 
-    // Confirmar contraseña
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden.");
       return;
     }
 
     try {
+      setCargando(true);
 
       console.log("1. Creando usuario en Authentication...");
 
-      // Crear usuario en Firebase Authentication
       const credenciales = await createUserWithEmailAndPassword(
         auth,
         correo,
@@ -94,10 +97,8 @@ export default function InicioRegistro() {
       const usuario = credenciales.user;
 
       console.log("2. Usuario creado:", usuario.uid);
-
       console.log("3. Guardando usuario en Firestore...");
 
-      // Guardar información adicional en Firestore
       await setDoc(doc(db, "usuarios", usuario.uid), {
         uid: usuario.uid,
         nombre: nombreLimpio,
@@ -110,188 +111,191 @@ export default function InicioRegistro() {
 
       setMensaje("¡Cuenta creada correctamente!");
 
-      // Limpiar campos
       setNombre("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
-
     } catch (err) {
-
       console.log("ERROR:", err);
       console.log("ERROR CODE:", err.code);
       console.log("ERROR MESSAGE:", err.message);
 
       if (err.code === "auth/email-already-in-use") {
-
         setError("Este correo ya está registrado.");
-
       } else if (err.code === "auth/invalid-email") {
-
         setError("El correo electrónico no es válido.");
-
       } else if (err.code === "auth/weak-password") {
-
         setError("La contraseña es demasiado débil.");
-
       } else if (err.code === "auth/network-request-failed") {
-
         setError("No hay conexión a internet.");
-
-      } else if (err.code === "permission-denied") {
-
+      } else if (
+        err.code === "permission-denied" ||
+        err.code === "firestore/permission-denied"
+      ) {
         setError(
-          "El usuario se creó, pero no se pudo guardar en Firestore."
+          "El usuario pudo crearse, pero no se pudo guardar su información en Firestore. Revisa las reglas de seguridad."
         );
-
       } else {
-
-        setError("No se pudo crear la cuenta.");
-
+        setError("No se pudo crear la cuenta. Inténtalo nuevamente.");
       }
+    } finally {
+      setCargando(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-
-      <Text style={styles.titulo}>
-        Crear cuenta
-      </Text>
-
-      <Text style={styles.subtitulo}>
-        Regístrate para comenzar
-      </Text>
-
-      {/* NOMBRE */}
-
-      <Text style={styles.label}>
-        Nombre
-      </Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Ingresa tu nombre"
-        placeholderTextColor="#8E8E93"
-        value={nombre}
-        onChangeText={setNombre}
-        autoCapitalize="words"
-      />
-
-      {/* CORREO */}
-
-      <Text style={styles.label}>
-        Correo electrónico
-      </Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Ingresa tu correo"
-        placeholderTextColor="#8E8E93"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-
-      {/* CONTRASEÑA */}
-
-      <Text style={styles.label}>
-        Contraseña
-      </Text>
-
-      <View style={styles.passwordContainer}>
-
-        <TextInput
-          style={styles.passwordInput}
-          placeholder="Ingresa tu contraseña"
-          placeholderTextColor="#8E8E93"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!mostrarPassword}
-        />
-
-        <TouchableOpacity
-          onPress={() => setMostrarPassword(!mostrarPassword)}
-          style={styles.botonMostrar}
+    <ImageBackground
+      source={{
+        uri: "https://i.pinimg.com/1200x/a2/0d/6b/a20d6be9b14a1f3186c6e8a3f9ad1120.jpg",
+      }}
+      style={styles.background}
+      resizeMode="cover"
+    >
+      <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.keyboard}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <Text style={styles.mostrarTexto}>
-            {mostrarPassword ? "Ocultar" : "Ver"}
-          </Text>
-        </TouchableOpacity>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.container}>
+              <Text style={styles.titulo}>Crear cuenta</Text>
 
+              <Text style={styles.subtitulo}>
+                Regístrate para comenzar
+              </Text>
+
+              <Text style={styles.label}>Nombre</Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Ingresa tu nombre"
+                placeholderTextColor="#8E8E93"
+                value={nombre}
+                onChangeText={setNombre}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+
+              <Text style={styles.label}>Correo electrónico</Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Ingresa tu correo"
+                placeholderTextColor="#8E8E93"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <Text style={styles.label}>Contraseña</Text>
+
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Ingresa tu contraseña"
+                  placeholderTextColor="#8E8E93"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!mostrarPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                <TouchableOpacity
+                  onPress={() => setMostrarPassword(!mostrarPassword)}
+                  style={styles.botonMostrar}
+                >
+                  <Text style={styles.mostrarTexto}>
+                    {mostrarPassword ? "Ocultar" : "Ver"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>Confirmar contraseña</Text>
+
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Confirma tu contraseña"
+                  placeholderTextColor="#8E8E93"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!mostrarConfirmPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                <TouchableOpacity
+                  onPress={() =>
+                    setMostrarConfirmPassword(!mostrarConfirmPassword)
+                  }
+                  style={styles.botonMostrar}
+                >
+                  <Text style={styles.mostrarTexto}>
+                    {mostrarConfirmPassword ? "Ocultar" : "Ver"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {error !== "" && (
+                <Text style={styles.error}>{error}</Text>
+              )}
+
+              {mensaje !== "" && (
+                <Text style={styles.mensaje}>{mensaje}</Text>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.boton,
+                  cargando && styles.botonDeshabilitado,
+                ]}
+                onPress={handleRegister}
+                activeOpacity={0.8}
+                disabled={cargando}
+              >
+                <Text style={styles.textoBoton}>
+                  {cargando ? "Creando cuenta..." : "Crear cuenta"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
-
-      {/* CONFIRMAR CONTRASEÑA */}
-
-      <Text style={styles.label}>
-        Confirmar contraseña
-      </Text>
-
-      <View style={styles.passwordContainer}>
-
-        <TextInput
-          style={styles.passwordInput}
-          placeholder="Confirma tu contraseña"
-          placeholderTextColor="#8E8E93"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry={!mostrarConfirmPassword}
-        />
-
-        <TouchableOpacity
-          onPress={() =>
-            setMostrarConfirmPassword(!mostrarConfirmPassword)
-          }
-          style={styles.botonMostrar}
-        >
-          <Text style={styles.mostrarTexto}>
-            {mostrarConfirmPassword ? "Ocultar" : "Ver"}
-          </Text>
-        </TouchableOpacity>
-
-      </View>
-
-      {/* MENSAJE DE ERROR */}
-
-      {error !== "" && (
-        <Text style={styles.error}>
-          {error}
-        </Text>
-      )}
-
-      {/* MENSAJE DE ÉXITO */}
-
-      {mensaje !== "" && (
-        <Text style={styles.mensaje}>
-          {mensaje}
-        </Text>
-      )}
-
-      {/* BOTÓN */}
-
-      <TouchableOpacity
-        style={styles.boton}
-        onPress={handleRegister}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.textoBoton}>
-          Crear cuenta
-        </Text>
-      </TouchableOpacity>
-
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+  },
+
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
+  },
+
+  keyboard: {
+    flex: 1,
+  },
+
+  scroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: 25,
+  },
 
   container: {
-    flex: 1,
+    marginHorizontal: 20,
     padding: 25,
-    justifyContent: "center",
-    backgroundColor: "#F8FAFA",
+    borderRadius: 20,
+    backgroundColor: "rgba(248, 250, 250, 0.96)",
   },
 
   titulo: {
@@ -306,7 +310,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#6B7280",
     textAlign: "center",
-    marginBottom: 35,
+    marginBottom: 30,
   },
 
   label: {
@@ -325,6 +329,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: "#FFFFFF",
     marginBottom: 20,
+    color: "#1D3D47",
   },
 
   passwordContainer: {
@@ -343,10 +348,12 @@ const styles = StyleSheet.create({
     height: 52,
     paddingHorizontal: 15,
     fontSize: 16,
+    color: "#1D3D47",
   },
 
   botonMostrar: {
     paddingHorizontal: 12,
+    paddingVertical: 10,
   },
 
   mostrarTexto: {
@@ -362,6 +369,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 10,
+  },
+
+  botonDeshabilitado: {
+    opacity: 0.6,
   },
 
   textoBoton: {
@@ -382,5 +393,4 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontWeight: "600",
   },
-
 });

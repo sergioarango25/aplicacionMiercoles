@@ -14,39 +14,13 @@ import Map from "./screens/Map";
 import Help from "./screens/help";
 import Donate from "./screens/donar";
 import Profile from "./screens/perfilesUsuario";
-import Register from "./screens/Register";
 
 const TABS = [
-  {
-    key: "home",
-    label: "Home",
-    icon: "home",
-  },
-  {
-    key: "map",
-    label: "Map",
-    icon: "map",
-  },
-  {
-    key: "help",
-    label: "Help",
-    icon: "hand-left",
-  },
-  {
-    key: "donate",
-    label: "Donate",
-    icon: "heart",
-  },
-  {
-    key: "profile",
-    label: "Profile",
-    icon: "person",
-  },
-  {
-    key: "register",
-    label: "Register",
-    icon: "person-add",
-  },
+  { key: "home", label: "Home", icon: "home" },
+  { key: "map", label: "Map", icon: "map" },
+  { key: "help", label: "Help", icon: "hand-left" },
+  { key: "donate", label: "Donate", icon: "heart" },
+  { key: "profile", label: "Profile", icon: "person" },
 ];
 
 export default function App() {
@@ -56,22 +30,14 @@ export default function App() {
     switch (activeTab) {
       case "home":
         return <Home />;
-
       case "map":
         return <Map />;
-
       case "help":
         return <Help />;
-
       case "donate":
         return <Donate />;
-
       case "profile":
         return <Profile />;
-
-      case "register":
-        return <Register />;
-
       default:
         return <Home />;
     }
@@ -93,7 +59,10 @@ export default function App() {
           return (
             <TouchableOpacity
               key={tab.key}
-              style={styles.tabButton}
+              style={[
+                styles.tabButton,
+                isActive && styles.tabButtonActive,
+              ]}
               onPress={() => setActiveTab(tab.key)}
               activeOpacity={0.7}
             >
@@ -104,11 +73,7 @@ export default function App() {
                     : `${tab.icon}-outline`
                 }
                 size={23}
-                color={
-                  isActive
-                    ? "#1D3D47"
-                    : "#8E8E93"
-                }
+                color={isActive ? "#1D3D47" : "#8E8E93"}
               />
 
               <Text
@@ -132,11 +97,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-
   content: {
     flex: 1,
   },
-
   bottomBar: {
     height: 65,
     backgroundColor: "#FFFFFF",
@@ -146,22 +109,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     alignItems: "center",
   },
-
   tabButton: {
-    width: 60,
+    flex: 1,
     height: 55,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    marginHorizontal: 2,
   },
-
+  tabButtonActive: {
+    backgroundColor: "#DCECEF",
+  },
   tabLabel: {
-    fontSize: 10,
+    fontSize: 12,
     color: "#8E8E93",
-    marginTop: 3,
+    marginTop: 5,
   },
-
   tabLabelActive: {
     color: "#1D3D47",
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });
