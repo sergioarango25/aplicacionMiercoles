@@ -138,15 +138,6 @@ export default function Home() {
         imageStyle={styles.backgroundImage}
         resizeMode="cover"
       >
-        <View style={styles.overlay}>
-          <View style={styles.StyleTitle}>
-            <Text style={styles.title}>Bienvenido</Text>
-
-            <Text style={styles.subtitle}>
-              Lo que hoy es caos, mañana será el cimiento de tu nueva fortaleza
-            </Text>
-          </View>
-        </View>
       </ImageBackground>
 
       {/* Encabezado de solicitudes */}
@@ -165,9 +156,6 @@ export default function Home() {
               Solicitudes de ayuda
             </Text>
 
-            <Text style={styles.subtituloSolicitudes}>
-              Conoce las necesidades de nuestra comunidad.
-            </Text>
           </View>
         </View>
 
@@ -311,7 +299,7 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    paddingBottom: 25,
+    flexGrow: 25,
   },
 
   cargandoPantalla: {
@@ -323,7 +311,7 @@ const styles = StyleSheet.create({
 
   background: {
     width: "100%",
-    height: 340,
+    height: 450,
   },
 
   backgroundImage: {
@@ -343,23 +331,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 25,
-  },
-
-  title: {
-    fontFamily: "Montserrat",
-    fontSize: 39,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    textAlign: "center",
-  },
-
-  subtitle: {
-    fontFamily: "Lobster",
-    fontSize: 23,
-    marginTop: 15,
-    color: "#FFFFFF",
-    textAlign: "center",
-    lineHeight: 31,
   },
 
   seccionSolicitudes: {
@@ -391,13 +362,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     color: "#1D3D47",
-  },
-
-  subtituloSolicitudes: {
-    fontSize: 12,
-    color: "#72858A",
-    marginTop: 4,
-    lineHeight: 18,
   },
 
   contador: {

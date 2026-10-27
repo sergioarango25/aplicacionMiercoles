@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -34,9 +33,7 @@ import { auth, db } from "../firebaseConfig";
 
 const ROLES = [
   "Voluntario",
-  "Apoyo comunitario",
   "Logística",
-  "Comunicación",
   "Apoyo en suministros",
 ];
 
@@ -57,9 +54,19 @@ export default function PerfilUsuario() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [mostrarConfirmPassword, setMostrarConfirmPassword] =
     useState(false);
+
+  // Referencias para avanzar entre los campos
+  const nombreRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
+
+  // Identifica el campo que está seleccionado
+  const [campoActivo, setCampoActivo] = useState(null);
 
   // Información del perfil
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -68,87 +75,113 @@ export default function PerfilUsuario() {
   const [disponible, setDisponible] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (!firebaseUser) {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (firebaseUser) => {
+        try {
+          if (!firebaseUser) {
+            setUser(null);
+            setCargando(false);
+            return;
+          }
+
+          const referencia = doc(
+            db,
+            "usuarios",
+            firebaseUser.uid
+          );
+
+          const resultado = await getDoc(referencia);
+
+          if (resultado.exists()) {
+            const datos = resultado.data();
+
+            setUser({
+              ...datos,
+              uid: firebaseUser.uid,
+              email: datos.email || firebaseUser.email,
+              nombre:
+                datos.nombre ||
+                firebaseUser.displayName ||
+                "Usuario",
+            });
+
+            setTipoParticipacion(
+              datos.tipoParticipacion || "Voluntario"
+            );
+
+            setDisponible(
+              datos.disponible === undefined
+                ? true
+                : datos.disponible
+            );
+          } else {
+            // Crear un perfil básico si la cuenta ya existe.
+            const perfilInicial = {
+              uid: firebaseUser.uid,
+              nombre: firebaseUser.displayName || "Usuario",
+              email: firebaseUser.email || "",
+              rol: "usuario",
+              tipoParticipacion: "Voluntario",
+              disponible: true,
+              fechaRegistro: serverTimestamp(),
+            };
+
+            await setDoc(referencia, perfilInicial, {
+              merge: true,
+            });
+
+            setUser({
+              ...perfilInicial,
+              email: firebaseUser.email || "",
+            });
+
+            setTipoParticipacion("Voluntario");
+            setDisponible(true);
+          }
+        } catch (error) {
+          console.log("Error al cargar el perfil:", error);
+
+          Alert.alert(
+            "Error",
+            "No se pudo cargar tu perfil. Revisa tu conexión y los permisos de Firebase."
+          );
+
           setUser(null);
+        } finally {
           setCargando(false);
-          return;
         }
-
-        const referencia = doc(db, "usuarios", firebaseUser.uid);
-        const resultado = await getDoc(referencia);
-
-        if (resultado.exists()) {
-          const datos = resultado.data();
-
-          setUser({
-            ...datos,
-            uid: firebaseUser.uid,
-            email: datos.email || firebaseUser.email,
-            nombre:
-              datos.nombre ||
-              firebaseUser.displayName ||
-              "Usuario",
-          });
-
-          setTipoParticipacion(
-            datos.tipoParticipacion || "Voluntario"
-          );
-          setDisponible(
-            datos.disponible === undefined
-              ? true
-              : datos.disponible
-          );
-        } else {
-          // Crea un perfil básico si la cuenta ya existe en Authentication.
-          const perfilInicial = {
-            uid: firebaseUser.uid,
-            nombre: firebaseUser.displayName || "Usuario",
-            email: firebaseUser.email || "",
-            rol: "usuario",
-            tipoParticipacion: "Voluntario",
-            disponible: true,
-            fechaRegistro: serverTimestamp(),
-          };
-
-          await setDoc(referencia, perfilInicial, { merge: true });
-
-          setUser({
-            ...perfilInicial,
-            email: firebaseUser.email || "",
-          });
-          setTipoParticipacion("Voluntario");
-          setDisponible(true);
-        }
-      } catch (error) {
-        console.log("Error al cargar el perfil:", error);
-        Alert.alert(
-          "Error",
-          "No se pudo cargar tu perfil. Revisa tu conexión y los permisos de Firebase."
-        );
-        setUser(null);
-      } finally {
-        setCargando(false);
       }
-    });
+    );
 
     return unsubscribe;
   }, []);
 
+  // REGISTRAR USUARIO
   const registrarUsuario = async () => {
     const nombreLimpio = nombre.trim();
     const correo = email.trim().toLowerCase();
 
-    if (!nombreLimpio || !correo || !password || !confirmPassword) {
-      Alert.alert("Campos incompletos", "Completa todos los campos.");
+    if (
+      !nombreLimpio ||
+      !correo ||
+      !password ||
+      !confirmPassword
+    ) {
+      Alert.alert(
+        "Campos incompletos",
+        "Completa todos los campos."
+      );
       return;
     }
 
     const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!correoValido.test(correo)) {
-      Alert.alert("Correo inválido", "Escribe un correo válido.");
+      Alert.alert(
+        "Correo inválido",
+        "Escribe un correo válido."
+      );
       return;
     }
 
@@ -161,7 +194,10 @@ export default function PerfilUsuario() {
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Las contraseñas no coinciden.");
+      Alert.alert(
+        "Error",
+        "Las contraseñas no coinciden."
+      );
       return;
     }
 
@@ -196,16 +232,21 @@ export default function PerfilUsuario() {
 
       setTipoParticipacion("Voluntario");
       setDisponible(true);
+
       setNombre("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
 
-      Alert.alert("¡Bienvenido!", "Tu cuenta fue creada correctamente.");
+      Alert.alert(
+        "¡Bienvenido!",
+        "Tu cuenta fue creada correctamente."
+      );
     } catch (error) {
       console.log("Error al registrar:", error);
 
-      let mensaje = "No se pudo crear la cuenta. Inténtalo de nuevo.";
+      let mensaje =
+        "No se pudo crear la cuenta. Inténtalo de nuevo.";
 
       if (error.code === "auth/email-already-in-use") {
         mensaje = "Este correo ya está registrado. Inicia sesión.";
@@ -226,6 +267,7 @@ export default function PerfilUsuario() {
     }
   };
 
+  // INICIAR SESIÓN
   const iniciarSesion = async () => {
     const correo = email.trim().toLowerCase();
 
@@ -240,7 +282,11 @@ export default function PerfilUsuario() {
     try {
       setGuardando(true);
 
-      await signInWithEmailAndPassword(auth, correo, password);
+      await signInWithEmailAndPassword(
+        auth,
+        correo,
+        password
+      );
 
       setPassword("");
       setConfirmPassword("");
@@ -267,17 +313,28 @@ export default function PerfilUsuario() {
     }
   };
 
+  // ABRIR FORMULARIO DEL PERFIL
   const abrirFormulario = () => {
-    setTipoParticipacion(user?.tipoParticipacion || "Voluntario");
-    setDisponible(
-      user?.disponible === undefined ? true : user.disponible
+    setTipoParticipacion(
+      user?.tipoParticipacion || "Voluntario"
     );
+
+    setDisponible(
+      user?.disponible === undefined
+        ? true
+        : user.disponible
+    );
+
     setMostrarFormulario(true);
   };
 
+  // GUARDAR INFORMACIÓN DEL PERFIL
   const guardarInformacion = async () => {
     if (!auth.currentUser) {
-      Alert.alert("Sesión cerrada", "Inicia sesión para editar tu perfil.");
+      Alert.alert(
+        "Sesión cerrada",
+        "Inicia sesión para editar tu perfil."
+      );
       return;
     }
 
@@ -303,7 +360,10 @@ export default function PerfilUsuario() {
 
       setMostrarFormulario(false);
 
-      Alert.alert("¡Guardado!", "Tu perfil se actualizó correctamente.");
+      Alert.alert(
+        "¡Guardado!",
+        "Tu perfil se actualizó correctamente."
+      );
     } catch (error) {
       console.log("Error al guardar el perfil:", error);
 
@@ -316,6 +376,7 @@ export default function PerfilUsuario() {
     }
   };
 
+  // CERRAR SESIÓN
   const cerrarSesion = () => {
     Alert.alert(
       "Cerrar sesión",
@@ -335,7 +396,10 @@ export default function PerfilUsuario() {
               setPassword("");
               setConfirmPassword("");
             } catch (error) {
-              Alert.alert("Error", "No se pudo cerrar la sesión.");
+              Alert.alert(
+                "Error",
+                "No se pudo cerrar la sesión."
+              );
             }
           },
         },
@@ -343,11 +407,17 @@ export default function PerfilUsuario() {
     );
   };
 
+  // PANTALLA DE CARGA
   if (cargando) {
     return (
       <View style={styles.cargandoContainer}>
-        <ActivityIndicator size="large" color="#1D3D47" />
-        <Text style={styles.textoCargando}>Cargando perfil...</Text>
+        <ActivityIndicator
+          size="large"
+          color="#1D3D47"
+        />
+        <Text style={styles.textoCargando}>
+          Cargando perfil...
+        </Text>
       </View>
     );
   }
@@ -357,7 +427,7 @@ export default function PerfilUsuario() {
     return (
       <KeyboardAvoidingView
         style={styles.contenedorPrincipal}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           contentContainerStyle={styles.authScroll}
@@ -372,56 +442,79 @@ export default function PerfilUsuario() {
               />
             </View>
 
-            <Text style={styles.tituloAuth}>La Esperanza</Text>
-
-            <Text style={styles.subtituloAuth}>
-              Unidos para ayudar, preparados para reconstruir.
+            <Text style={styles.tituloAuth}>
+              La Esperanza
             </Text>
           </View>
 
           <View style={styles.authCard}>
             <Text style={styles.tituloCardAuth}>
-              {modoRegistro ? "Crear cuenta" : "Bienvenido de nuevo"}
-            </Text>
-
-            <Text style={styles.descripcionAuth}>
               {modoRegistro
-                ? "Regístrate para formar parte de nuestra comunidad."
-                : "Inicia sesión para consultar tu perfil."}
+                ? "Crear cuenta"
+                : "Bienvenido de nuevo"}
             </Text>
 
+            {/* CAMPO NOMBRE */}
             {modoRegistro && (
               <>
-                <Text style={styles.labelInput}>Nombre completo</Text>
+                <Text style={styles.labelInput}>
+                  Nombre completo
+                </Text>
 
-                <View style={styles.inputContenedor}>
+                <View
+                  style={[
+                    styles.inputContenedor,
+                    campoActivo === "nombre" &&
+                      styles.inputContenedorActivo,
+                  ]}
+                >
                   <Ionicons
                     name="person-outline"
                     size={20}
                     color="#72858A"
                   />
+
                   <TextInput
+                    ref={nombreRef}
                     style={styles.input}
                     placeholder="Escribe tu nombre"
                     placeholderTextColor="#9AA8AB"
                     value={nombre}
                     onChangeText={setNombre}
                     autoCapitalize="words"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() =>
+                      emailRef.current?.focus()
+                    }
+                    onFocus={() => setCampoActivo("nombre")}
+                    onBlur={() => setCampoActivo(null)}
                     editable={!guardando}
                   />
                 </View>
               </>
             )}
 
-            <Text style={styles.labelInput}>Correo electrónico</Text>
+            {/* CAMPO CORREO */}
+            <Text style={styles.labelInput}>
+              Correo electrónico
+            </Text>
 
-            <View style={styles.inputContenedor}>
+            <View
+              style={[
+                styles.inputContenedor,
+                campoActivo === "email" &&
+                  styles.inputContenedorActivo,
+              ]}
+            >
               <Ionicons
                 name="mail-outline"
                 size={20}
                 color="#72858A"
               />
+
               <TextInput
+                ref={emailRef}
                 style={styles.input}
                 placeholder="ejemplo@correo.com"
                 placeholderTextColor="#9AA8AB"
@@ -430,19 +523,37 @@ export default function PerfilUsuario() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() =>
+                  passwordRef.current?.focus()
+                }
+                onFocus={() => setCampoActivo("email")}
+                onBlur={() => setCampoActivo(null)}
                 editable={!guardando}
               />
             </View>
 
-            <Text style={styles.labelInput}>Contraseña</Text>
+            {/* CAMPO CONTRASEÑA */}
+            <Text style={styles.labelInput}>
+              Contraseña
+            </Text>
 
-            <View style={styles.inputContenedor}>
+            <View
+              style={[
+                styles.inputContenedor,
+                campoActivo === "password" &&
+                  styles.inputContenedorActivo,
+              ]}
+            >
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
                 color="#72858A"
               />
+
               <TextInput
+                ref={passwordRef}
                 style={styles.input}
                 placeholder="Mínimo 6 caracteres"
                 placeholderTextColor="#9AA8AB"
@@ -450,10 +561,24 @@ export default function PerfilUsuario() {
                 onChangeText={setPassword}
                 secureTextEntry={!mostrarPassword}
                 autoCapitalize="none"
+                returnKeyType={modoRegistro ? "next" : "done"}
+                blurOnSubmit={!modoRegistro}
+                onSubmitEditing={() => {
+                  if (modoRegistro) {
+                    confirmPasswordRef.current?.focus();
+                  } else {
+                    iniciarSesion();
+                  }
+                }}
+                onFocus={() => setCampoActivo("password")}
+                onBlur={() => setCampoActivo(null)}
                 editable={!guardando}
               />
+
               <TouchableOpacity
-                onPress={() => setMostrarPassword(!mostrarPassword)}
+                onPress={() =>
+                  setMostrarPassword(!mostrarPassword)
+                }
               >
                 <Ionicons
                   name={
@@ -467,19 +592,28 @@ export default function PerfilUsuario() {
               </TouchableOpacity>
             </View>
 
+            {/* CONFIRMAR CONTRASEÑA */}
             {modoRegistro && (
               <>
                 <Text style={styles.labelInput}>
                   Confirmar contraseña
                 </Text>
 
-                <View style={styles.inputContenedor}>
+                <View
+                  style={[
+                    styles.inputContenedor,
+                    campoActivo === "confirmPassword" &&
+                      styles.inputContenedorActivo,
+                  ]}
+                >
                   <Ionicons
                     name="shield-checkmark-outline"
                     size={20}
                     color="#72858A"
                   />
+
                   <TextInput
+                    ref={confirmPasswordRef}
                     style={styles.input}
                     placeholder="Repite tu contraseña"
                     placeholderTextColor="#9AA8AB"
@@ -487,8 +621,15 @@ export default function PerfilUsuario() {
                     onChangeText={setConfirmPassword}
                     secureTextEntry={!mostrarConfirmPassword}
                     autoCapitalize="none"
+                    returnKeyType="done"
+                    onSubmitEditing={registrarUsuario}
+                    onFocus={() =>
+                      setCampoActivo("confirmPassword")
+                    }
+                    onBlur={() => setCampoActivo(null)}
                     editable={!guardando}
                   />
+
                   <TouchableOpacity
                     onPress={() =>
                       setMostrarConfirmPassword(
@@ -510,12 +651,17 @@ export default function PerfilUsuario() {
               </>
             )}
 
+            {/* BOTÓN PRINCIPAL */}
             <TouchableOpacity
               style={[
                 styles.botonPrincipal,
                 guardando && styles.botonDeshabilitado,
               ]}
-              onPress={modoRegistro ? registrarUsuario : iniciarSesion}
+              onPress={
+                modoRegistro
+                  ? registrarUsuario
+                  : iniciarSesion
+              }
               disabled={guardando}
               activeOpacity={0.8}
             >
@@ -523,7 +669,9 @@ export default function PerfilUsuario() {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.textoBotonPrincipal}>
-                  {modoRegistro ? "Crear mi cuenta" : "Iniciar sesión"}
+                  {modoRegistro
+                    ? "Crear mi cuenta"
+                    : "Iniciar sesión"}
                 </Text>
               )}
             </TouchableOpacity>
@@ -541,10 +689,13 @@ export default function PerfilUsuario() {
                   setModoRegistro(!modoRegistro);
                   setPassword("");
                   setConfirmPassword("");
+                  setCampoActivo(null);
                 }}
               >
                 <Text style={styles.enlaceCambiarModo}>
-                  {modoRegistro ? "Inicia sesión" : "Regístrate"}
+                  {modoRegistro
+                    ? "Inicia sesión"
+                    : "Regístrate"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -562,9 +713,8 @@ export default function PerfilUsuario() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.encabezadoPerfil}>
-        <Text style={styles.tituloPerfil}>Mi perfil</Text>
-        <Text style={styles.subtituloPerfil}>
-          Tu espacio en la comunidad La Esperanza
+        <Text style={styles.tituloPerfil}>
+          Mi perfil
         </Text>
       </View>
 
@@ -581,19 +731,17 @@ export default function PerfilUsuario() {
           <Text style={styles.nombreUsuario}>
             {user.nombre || "Usuario"}
           </Text>
+
           <Text style={styles.correoUsuario}>
             {user.email || "Sin correo registrado"}
           </Text>
-          <View style={styles.etiquetaUsuario}>
-            <Text style={styles.textoEtiquetaUsuario}>
-              Miembro de La Esperanza
-            </Text>
-          </View>
         </View>
       </View>
 
       <View style={styles.encabezadoSeccion}>
-        <Text style={styles.tituloSeccion}>Mi participación</Text>
+        <Text style={styles.tituloSeccion}>
+          Mi participación
+        </Text>
 
         <TouchableOpacity
           style={styles.botonEditar}
@@ -605,7 +753,9 @@ export default function PerfilUsuario() {
             size={17}
             color="#1D3D47"
           />
-          <Text style={styles.textoBotonEditar}>Editar</Text>
+          <Text style={styles.textoBotonEditar}>
+            Editar
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -623,6 +773,7 @@ export default function PerfilUsuario() {
             <Text style={styles.etiquetaInfo}>
               Tipo de participación
             </Text>
+
             <Text style={styles.valorInfo}>
               {user.tipoParticipacion || "Voluntario"}
             </Text>
@@ -641,7 +792,10 @@ export default function PerfilUsuario() {
           </View>
 
           <View style={styles.contenidoInfo}>
-            <Text style={styles.etiquetaInfo}>Disponibilidad</Text>
+            <Text style={styles.etiquetaInfo}>
+              Disponibilidad
+            </Text>
+
             <Text style={styles.valorInfo}>
               {user.disponible === false
                 ? "No disponible"
@@ -654,24 +808,25 @@ export default function PerfilUsuario() {
               styles.puntoEstado,
               {
                 backgroundColor:
-                  user.disponible === false ? "#B85C5C" : "#4A9B76",
+                  user.disponible === false
+                    ? "#B85C5C"
+                    : "#4A9B76",
               },
             ]}
           />
         </View>
       </View>
 
+      {/* FORMULARIO PARA EDITAR EL PERFIL */}
       {mostrarFormulario && (
         <View style={styles.tarjetaFormulario}>
           <Text style={styles.tituloFormulario}>
             Editar participación
           </Text>
 
-          <Text style={styles.descripcionFormulario}>
-            Cuéntanos cómo te gustaría colaborar.
+          <Text style={styles.labelRol}>
+            Tipo de participación
           </Text>
-
-          <Text style={styles.labelRol}>Tipo de participación</Text>
 
           {ROLES.map((rol) => {
             const seleccionado = tipoParticipacion === rol;
@@ -681,7 +836,8 @@ export default function PerfilUsuario() {
                 key={rol}
                 style={[
                   styles.opcionRol,
-                  seleccionado && styles.opcionRolSeleccionada,
+                  seleccionado &&
+                    styles.opcionRolSeleccionada,
                 ]}
                 onPress={() => setTipoParticipacion(rol)}
                 activeOpacity={0.8}
@@ -689,7 +845,8 @@ export default function PerfilUsuario() {
                 <Text
                   style={[
                     styles.textoOpcionRol,
-                    seleccionado && styles.textoOpcionSeleccionada,
+                    seleccionado &&
+                      styles.textoOpcionSeleccionada,
                   ]}
                 >
                   {rol}
@@ -702,13 +859,19 @@ export default function PerfilUsuario() {
                       : "radio-button-off"
                   }
                   size={21}
-                  color={seleccionado ? "#1D3D47" : "#9AA8AB"}
+                  color={
+                    seleccionado
+                      ? "#1D3D47"
+                      : "#9AA8AB"
+                  }
                 />
               </TouchableOpacity>
             );
           })}
 
-          <Text style={styles.labelRol}>¿Estás disponible?</Text>
+          <Text style={styles.labelRol}>
+            ¿Estás disponible?
+          </Text>
 
           <View style={styles.filaDisponibilidad}>
             <TouchableOpacity
@@ -724,10 +887,12 @@ export default function PerfilUsuario() {
                 size={19}
                 color={disponible ? "#FFFFFF" : "#1D3D47"}
               />
+
               <Text
                 style={[
                   styles.textoDisponibilidad,
-                  disponible && styles.textoDisponibilidadActivo,
+                  disponible &&
+                    styles.textoDisponibilidadActivo,
                 ]}
               >
                 Sí, disponible
@@ -747,10 +912,12 @@ export default function PerfilUsuario() {
                 size={19}
                 color={!disponible ? "#FFFFFF" : "#1D3D47"}
               />
+
               <Text
                 style={[
                   styles.textoDisponibilidad,
-                  !disponible && styles.textoDisponibilidadActivo,
+                  !disponible &&
+                    styles.textoDisponibilidadActivo,
                 ]}
               >
                 No disponible
@@ -789,8 +956,11 @@ export default function PerfilUsuario() {
         </View>
       )}
 
+      {/* ZONAS DE APOYO */}
       <View style={styles.encabezadoSeccion}>
-        <Text style={styles.tituloSeccion}>Zonas de apoyo</Text>
+        <Text style={styles.tituloSeccion}>
+          Zonas de apoyo
+        </Text>
       </View>
 
       <Text style={styles.descripcionZonas}>
@@ -803,7 +973,10 @@ export default function PerfilUsuario() {
         contentContainerStyle={styles.listaZonas}
       >
         {ZONAS.map((zona, index) => (
-          <View style={styles.tarjetaZona} key={zona.nombre}>
+          <View
+            style={styles.tarjetaZona}
+            key={zona.nombre}
+          >
             <View style={styles.iconoZona}>
               <Ionicons
                 name={
@@ -818,7 +991,9 @@ export default function PerfilUsuario() {
               />
             </View>
 
-            <Text style={styles.nombreZona}>{zona.nombre}</Text>
+            <Text style={styles.nombreZona}>
+              {zona.nombre}
+            </Text>
 
             {zona.distancia !== "" && (
               <Text style={styles.distanciaZona}>
@@ -829,6 +1004,7 @@ export default function PerfilUsuario() {
         ))}
       </ScrollView>
 
+      {/* CERRAR SESIÓN */}
       <TouchableOpacity
         style={styles.botonCerrarSesion}
         onPress={cerrarSesion}
@@ -839,6 +1015,7 @@ export default function PerfilUsuario() {
           size={20}
           color="#B64C4C"
         />
+
         <Text style={styles.textoCerrarSesion}>
           Cerrar sesión
         </Text>
@@ -850,7 +1027,6 @@ export default function PerfilUsuario() {
     </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
   contenedorPrincipal: {
     flex: 1,
@@ -899,39 +1075,19 @@ const styles = StyleSheet.create({
     color: "#1D3D47",
   },
 
-  subtituloAuth: {
-    fontSize: 14,
-    color: "#72858A",
-    textAlign: "center",
-    marginTop: 7,
-    lineHeight: 21,
-  },
-
   authCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 22,
     padding: 22,
     borderWidth: 1,
-    borderColor: "#E6EEF0",
-    elevation: 3,
-    shadowColor: "#1D3D47",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
+    borderColor: "#000000",
   },
 
   tituloCardAuth: {
+    textAlign: "center",
     fontSize: 23,
     fontWeight: "800",
     color: "#1D3D47",
-  },
-
-  descripcionAuth: {
-    color: "#72858A",
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 7,
-    marginBottom: 18,
   },
 
   labelInput: {
@@ -951,6 +1107,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 13,
     backgroundColor: "#FBFDFD",
+  },
+
+  // Borde resaltado del campo seleccionado
+  inputContenedorActivo: {
+    borderColor: "#1D3D47",
+    borderWidth: 2,
+    backgroundColor: "#FFFFFF",
   },
 
   input: {
@@ -990,7 +1153,7 @@ const styles = StyleSheet.create({
   },
 
   textoCambiarModo: {
-    color: "#72858A",
+    color: "#000000",
     fontSize: 13,
   },
 
@@ -1015,13 +1178,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     color: "#1D3D47",
-  },
-
-  subtituloPerfil: {
-    fontSize: 14,
-    color: "#72858A",
-    marginTop: 5,
-    lineHeight: 20,
   },
 
   tarjetaUsuario: {
@@ -1059,21 +1215,6 @@ const styles = StyleSheet.create({
     color: "#72858A",
     fontSize: 13,
     marginTop: 5,
-  },
-
-  etiquetaUsuario: {
-    alignSelf: "flex-start",
-    backgroundColor: "#EAF3F4",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginTop: 9,
-  },
-
-  textoEtiquetaUsuario: {
-    color: "#1D3D47",
-    fontSize: 11,
-    fontWeight: "700",
   },
 
   encabezadoSeccion: {
@@ -1172,14 +1313,6 @@ const styles = StyleSheet.create({
     fontSize: 19,
     color: "#1D3D47",
     fontWeight: "800",
-  },
-
-  descripcionFormulario: {
-    color: "#72858A",
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 6,
-    marginBottom: 17,
   },
 
   labelRol: {

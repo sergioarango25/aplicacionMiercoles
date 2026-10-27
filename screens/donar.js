@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import LogoD1 from '../assets/img/Logo-d1.svg';
 import LogoAra from '../assets/img/Logo-ara.svg';
 import LogoExito from '../assets/img/Logo-exito.svg';
+
 import {
   View,
   Text,
@@ -11,120 +12,273 @@ import {
   Alert,
   ScrollView,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 
+import {
+  addDoc,
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+} from 'firebase/firestore';
+
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '../firebaseConfig';
+
 const Donar = () => {
-  const [totalLivesReached, setTotalLivesReached] = useState(0);
-
-  // Tipo de donación
   const [donationType, setDonationType] = useState('monetary');
-
-  // Monto seleccionado
   const [selectedAmount, setSelectedAmount] = useState('50000');
   const [customAmount, setCustomAmount] = useState('');
+  const [donorName, setDonorName] = useState('');
+  const [note, setNote] = useState('');
 
-  // Mensaje de confirmación
-  const [successMessage, setSuccessMessage] = useState('');
+  const [user, setUser] = useState(null);
+  const [donations, setDonations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Montos disponibles
   const amounts = [
-    { value: '20000', label: '$20.000', popular: false },
-    { value: '50000', label: '$50.000', popular: true },
-    { value: '100000', label: '$100.000', popular: false },
-    { value: '200000', label: '$200.000', popular: false },
+    { value: '20000', label: '$20.000' },
+    { value: '50000', label: '$50.000' },
+    { value: '100000', label: '$100.000' },
+    { value: '200000', label: '$200.000' },
   ];
 
-  // Seleccionar monto
-  const handleSelectAmount = (val) => {
-    setSelectedAmount(val);
+  // Detectar el usuario autenticado
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+
+      if (currentUser && !donorName.trim()) {
+        setDonorName(currentUser.displayName || '');
+      }
+    });
+
+    return unsubscribeAuth;
+  }, []);
+
+  // Cargar únicamente las donaciones del usuario
+  useEffect(() => {
+    if (!user) {
+      setDonations([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    setLoading(true);
+
+    const donationsQuery = query(
+      collection(db, 'donaciones'),
+      where('usuarioId', '==', user.uid),
+      orderBy('fecha', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      donationsQuery,
+      (snapshot) => {
+        const donationsData = snapshot.docs.map((document) => ({
+          id: document.id,
+          ...document.data(),
+        }));
+
+        setDonations(donationsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error al cargar donaciones:', error);
+        setLoading(false);
+
+        Alert.alert(
+          'No se pudo cargar el historial',
+          'Revisa tu conexión y los permisos de Firestore.'
+        );
+      }
+    );
+
+    return unsubscribe;
+  }, [user]);
+
+  // Obtener el monto seleccionado
+  const getCurrentDonationValue = () => {
+    const rawValue =
+      selectedAmount === 'custom'
+        ? customAmount
+        : selectedAmount;
+
+    const normalizedValue = String(rawValue).replace(/[.\s,$]/g, '');
+
+    if (!/^\d+$/.test(normalizedValue)) {
+      return 0;
+    }
+
+    return Number(normalizedValue);
+  };
+
+  // Seleccionar uno de los montos
+  const handleSelectAmount = (value) => {
+    setSelectedAmount(value);
     setCustomAmount('');
   };
 
-  // Escribir monto personalizado
+  // Aceptar únicamente números en el monto personalizado
   const handleCustomAmountChange = (text) => {
-    if (/^\d*$/.test(text)) {
-      setCustomAmount(text);
-      setSelectedAmount('custom');
-    }
+    const digitsOnly = text.replace(/\D/g, '');
+
+    setCustomAmount(digitsOnly);
+    setSelectedAmount('custom');
   };
 
-  // Obtener valor actual
-  const getCurrentDonationValue = () => {
-    if (selectedAmount === 'custom') {
-      return parseInt(customAmount, 10) || 0;
-    }
-
-    return parseInt(selectedAmount, 10) || 0;
-  };
-
-  // Completar donación
-  const handleCompleteDonation = () => {
-    const donationValue = getCurrentDonationValue();
-
-    if (donationValue <= 0) {
+  // Validar y guardar la donación
+  const handleSaveDonation = async () => {
+    if (!user) {
       Alert.alert(
-        'Monto inválido',
-        'Por favor ingresa o selecciona un monto válido para donar.'
+        'Inicia sesión',
+        'Debes iniciar sesión para guardar tu donación.'
       );
       return;
     }
 
-    setTotalLivesReached((prevTotal) => prevTotal + donationValue);
+    const amount = getCurrentDonationValue();
+    const cleanName = donorName.trim();
+    const cleanNote = note.trim();
 
-    const formattedAmount = donationValue.toLocaleString('es-CO');
+    if (!cleanName) {
+      Alert.alert(
+        'Falta tu nombre',
+        'Escribe el nombre del donante.'
+      );
+      return;
+    }
 
-    setSuccessMessage(
-      `¡Gracias! Has donado $${formattedAmount} COP exitosamente.`
+    if (!Number.isSafeInteger(amount) || amount < 1000) {
+      Alert.alert(
+        'Monto inválido',
+        'Ingresa un monto de mínimo $1.000 COP, sin puntos ni comas.'
+      );
+      return;
+    }
+
+    if (cleanNote.length > 250) {
+      Alert.alert(
+        'Mensaje muy largo',
+        'El mensaje debe tener máximo 250 caracteres.'
+      );
+      return;
+    }
+
+    // Confirmar antes de guardar
+    Alert.alert(
+      'Confirmar donación',
+      `Vas a registrar una donación de $${amount.toLocaleString(
+        'es-CO'
+      )} COP. Este formulario guarda el registro, pero no realiza un pago real.`,
+      [
+        {
+          text: 'Revisar',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            try {
+              setSaving(true);
+
+              await addDoc(collection(db, 'donaciones'), {
+                usuarioId: user.uid,
+                nombreDonante: cleanName,
+                correo: user.email || '',
+                monto: amount,
+                moneda: 'COP',
+                nota: cleanNote,
+                estado: 'Registrada',
+                fecha: serverTimestamp(),
+              });
+
+              setCustomAmount('');
+              setSelectedAmount('50000');
+              setNote('');
+
+              Alert.alert(
+                'Registro guardado',
+                'Tu donación quedó guardada en Firebase y aparecerá en tu historial.'
+              );
+            } catch (error) {
+              console.error('Error al guardar donación:', error);
+
+              Alert.alert(
+                'No se pudo guardar',
+                'Verifica tu conexión, que hayas iniciado sesión y las reglas de Firestore.'
+              );
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ]
     );
+  };
 
-    setTimeout(() => {
-      setSuccessMessage('');
-    }, 4000);
+  // Formatear la fecha
+  const formatDate = (timestamp) => {
+    if (!timestamp?.toDate) {
+      return 'Fecha pendiente';
+    }
 
-    setCustomAmount('');
-    setSelectedAmount('50000');
+    return timestamp.toDate().toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      {/* Mensaje de éxito */}
-      {successMessage !== '' && (
-        <View style={styles.toastNotification}>
-          <Text style={styles.toastText}>
-            {successMessage}
-          </Text>
-        </View>
-      )}
-
-      {/* Tarjeta de métricas */}
+      {/* Resumen de donaciones */}
       <View style={styles.heroCard}>
-        <View style={styles.heroContent}>
-          <Text style={styles.heroLabel}>
-            TOTAL LIVES REACHED
-          </Text>
+        <Text style={styles.heroLabel}>
+          MIS DONACIONES
+        </Text>
 
-          <Text style={styles.heroValue}>
-            {totalLivesReached.toLocaleString('en-US')}
-          </Text>
-        </View>
+        <Text style={styles.heroValue}>
+          {donations
+            .reduce(
+              (total, item) =>
+                total + (Number(item.monto) || 0),
+              0
+            )
+            .toLocaleString('es-CO', {
+              style: 'currency',
+              currency: 'COP',
+              maximumFractionDigits: 0,
+            })}
+        </Text>
+
+        <Text style={styles.heroHint}>
+          Total de donaciones registradas en tu cuenta
+        </Text>
       </View>
 
-      {/* Tarjeta principal de donación */}
+      {/* Tarjeta principal */}
       <View style={styles.donationCard}>
-
         {/* Selector de tipo */}
         <View style={styles.toggleContainer}>
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              donationType === 'monetary' && styles.toggleActive,
+              donationType === 'monetary' &&
+                styles.toggleActive,
             ]}
             onPress={() => setDonationType('monetary')}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
             <Text
               style={[
@@ -133,17 +287,18 @@ const Donar = () => {
                   styles.toggleTextActive,
               ]}
             >
-              💲 Monto
+              Dinero
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
               styles.toggleButton,
-              donationType === 'inkind' && styles.toggleActive,
+              donationType === 'inkind' &&
+                styles.toggleActive,
             ]}
             onPress={() => setDonationType('inkind')}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
             <Text
               style={[
@@ -152,45 +307,45 @@ const Donar = () => {
                   styles.toggleTextActive,
               ]}
             >
-              📦 Insumos
+              Insumos
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* DONACIÓN MONETARIA */}
         {donationType === 'monetary' ? (
           <>
             <Text style={styles.sectionTitle}>
-              Selecciona un monto para donar (COP)
+              Registrar donación
             </Text>
 
-            {/* Montos disponibles */}
+            <Text style={styles.helperText}>
+              Elige un monto o escribe otro valor en pesos colombianos.
+            </Text>
+
+            {/* Montos predefinidos */}
             <View style={styles.gridAmounts}>
               {amounts.map((item) => {
-                const isSelected = selectedAmount === item.value;
+                const selected =
+                  selectedAmount === item.value;
 
                 return (
                   <TouchableOpacity
                     key={item.value}
                     style={[
                       styles.amountCard,
-                      isSelected && styles.amountCardSelected,
+                      selected &&
+                        styles.amountCardSelected,
                     ]}
-                    onPress={() => handleSelectAmount(item.value)}
-                    activeOpacity={0.7}
+                    onPress={() =>
+                      handleSelectAmount(item.value)
+                    }
+                    activeOpacity={0.8}
                   >
-                    {item.popular && (
-                      <View style={styles.popularTag}>
-                        <Text style={styles.popularText}>
-                          POPULAR
-                        </Text>
-                      </View>
-                    )}
-
                     <Text
                       style={[
                         styles.amountText,
-                        isSelected && styles.amountTextSelected,
+                        selected &&
+                          styles.amountTextSelected,
                       ]}
                     >
                       {item.label}
@@ -201,76 +356,111 @@ const Donar = () => {
             </View>
 
             {/* Monto personalizado */}
-            <View style={styles.customAmountContainer}>
-              <View
-                style={[
-                  styles.inputWrapper,
-                  selectedAmount === 'custom' &&
-                    styles.inputWrapperSelected,
-                ]}
-              >
-                <Text style={styles.currencySymbol}>
-                  $
-                </Text>
+            <Text style={styles.label}>
+              Otro monto (COP)
+            </Text>
 
-                <TextInput
-                  placeholder="Otra cantidad"
-                  placeholderTextColor="#94a3b8"
-                  value={customAmount}
-                  onChangeText={handleCustomAmountChange}
-                  onFocus={() => setSelectedAmount('custom')}
-                  keyboardType="numeric"
-                  style={styles.customInput}
-                />
-              </View>
-            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej. 30000"
+              placeholderTextColor="#94a3b8"
+              value={customAmount}
+              onChangeText={handleCustomAmountChange}
+              onFocus={() => setSelectedAmount('custom')}
+              keyboardType="number-pad"
+              maxLength={12}
+              returnKeyType="done"
+            />
 
-            {/* Botón para completar donación */}
+            {/* Nombre del donante */}
+            <Text style={styles.label}>
+              Nombre del donante *
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Escribe tu nombre"
+              placeholderTextColor="#94a3b8"
+              value={donorName}
+              onChangeText={setDonorName}
+              autoCapitalize="words"
+              maxLength={80}
+              returnKeyType="next"
+            />
+
+            {/* Mensaje opcional */}
+            <Text style={styles.label}>
+              Mensaje (opcional)
+            </Text>
+
+            <TextInput
+              style={[
+                styles.input,
+                styles.noteInput,
+              ]}
+              placeholder="¿Quieres dejar una nota? (máx. 250 caracteres)"
+              placeholderTextColor="#94a3b8"
+              value={note}
+              onChangeText={setNote}
+              maxLength={250}
+              multiline
+            />
+
+            <Text style={styles.disclaimer}>
+              Este formulario registra tu intención de donar.
+              No procesa pagos ni solicita datos bancarios.
+            </Text>
+
+            {/* Botón de guardar */}
             <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handleCompleteDonation}
+              style={[
+                styles.submitButton,
+                saving && styles.buttonDisabled,
+              ]}
+              onPress={handleSaveDonation}
+              disabled={saving}
               activeOpacity={0.8}
             >
-              <Text style={styles.submitButtonText}>
-                Completar Donación
-              </Text>
+              {saving ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  Guardar donación
+                </Text>
+              )}
             </TouchableOpacity>
-            
           </>
-
-          
         ) : (
-          
-          /* DONACIÓN DE INSUMOS */
           <View style={styles.supermercadoContainer}>
-            <Text style={styles.supermercadoText}>
-              En este apartado podras encontrar los supermercados y tiendas de conveniencia para que puedas verificar productos de primera necesidad que puedes donar a las personas afectadas por la emergencia.
+            <Text style={styles.helperText}>
+              Consulta estos comercios para encontrar productos
+              de primera necesidad que puedas donar.
             </Text>
           </View>
         )}
       </View>
 
-      {/* TARJETAS INFORMATIVAS FUERA DE LA TARJETA PRINCIPAL */}
+      {/* Comercios para donaciones de insumos */}
       {donationType === 'inkind' && (
         <View style={styles.infoContainer}>
-
-          {/* Caja de contacto */}
           <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>Tiendas D1</Text>
+            <Text style={styles.infoTitle}>
+              Tiendas D1
+            </Text>
 
             <LogoD1 width={70} height={70} />
 
             <TouchableOpacity
-              onPress={() => Linking.openURL('https://www.d1.com.co/')}
-              activeOpacity={0.7}
+              onPress={() =>
+                Linking.openURL('https://www.d1.com.co/')
+              }
             >
               <Text style={styles.linkText}>
-                https://www.d1.com.co/
+                Visitar D1
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Caja de puntos de entrega */}
           <View style={styles.infoBox}>
             <Text style={styles.infoTitle}>
               Tiendas Ara
@@ -279,33 +469,85 @@ const Donar = () => {
             <LogoAra width={70} height={70} />
 
             <TouchableOpacity
-              onPress={() => Linking.openURL('https://www.tiendasara.com/')}
-              activeOpacity={0.7}
+              onPress={() =>
+                Linking.openURL('https://www.tiendasara.com/')
+              }
             >
               <Text style={styles.linkText}>
-                https://www.tiendasara.com/
+                Visitar Ara
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Caja de insumos necesarios */}
           <View style={styles.infoBox}>
             <Text style={styles.infoTitle}>
-              Supermercados Exito
+              Supermercados Éxito
             </Text>
 
             <LogoExito width={70} height={70} />
 
             <TouchableOpacity
-              onPress={() => Linking.openURL('https://www.exito.com/')}
-              activeOpacity={0.7}
+              onPress={() =>
+                Linking.openURL('https://www.exito.com/')
+              }
             >
               <Text style={styles.linkText}>
-                https://www.exito.com/
+                Visitar Éxito
               </Text>
             </TouchableOpacity>
           </View>
+        </View>
+      )}
 
+      {/* Historial personal */}
+      {donationType === 'monetary' && (
+        <View style={styles.historyCard}>
+          <Text style={styles.sectionTitle}>
+            Mi historial
+          </Text>
+
+          {!user ? (
+            <Text style={styles.emptyText}>
+              Inicia sesión para guardar y consultar tus donaciones.
+            </Text>
+          ) : loading ? (
+            <ActivityIndicator color="#1d64b4" />
+          ) : donations.length === 0 ? (
+            <Text style={styles.emptyText}>
+              Todavía no tienes donaciones registradas.
+            </Text>
+          ) : (
+            donations.map((item) => (
+              <View
+                key={item.id}
+                style={styles.historyItem}
+              >
+                <View style={styles.historyInfo}>
+                  <Text style={styles.historyAmount}>
+                    $
+                    {(Number(item.monto) || 0).toLocaleString(
+                      'es-CO'
+                    )}{' '}
+                    COP
+                  </Text>
+
+                  <Text style={styles.historyDate}>
+                    {formatDate(item.fecha)}
+                  </Text>
+
+                  {!!item.nota && (
+                    <Text style={styles.historyNote}>
+                      {item.nota}
+                    </Text>
+                  )}
+                </View>
+
+                <Text style={styles.historyStatus}>
+                  {item.estado || 'Registrada'}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
       )}
     </ScrollView>
@@ -320,126 +562,55 @@ const styles = StyleSheet.create({
 
   container: {
     padding: 16,
-    paddingBottom: 30,
+    paddingBottom: 32,
   },
 
-  /* Mensaje de éxito */
-  toastNotification: {
-    backgroundColor: '#10b981',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-
-  toastText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-
-  /* Encabezado */
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-
-  iconButton: {
-    padding: 5,
-  },
-
-  iconText: {
-    fontSize: 18,
-  },
-
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-
-  /* Tarjeta de métricas */
   heroCard: {
     backgroundColor: '#002244',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    overflow: 'hidden',
-  },
-
-  heroContent: {
-    flex: 1,
   },
 
   heroLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
-    color: '#94a3b8',
-    marginBottom: 4,
+    color: '#cbd5e1',
+    marginBottom: 8,
   },
 
   heroValue: {
-    fontSize: 32,
+    fontSize: 27,
     fontWeight: '800',
     color: '#ffffff',
-    marginBottom: 12,
   },
 
-  badge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
+  heroHint: {
+    color: '#dbeafe',
+    fontSize: 12,
+    marginTop: 6,
   },
 
-  badgeIcon: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginRight: 6,
-  },
-
-  badgeText: {
-    fontSize: 11,
-    color: '#ffffff',
-  },
-
-  globeIcon: {
-    fontSize: 48,
-    opacity: 0.15,
-  },
-
-  /* Tarjeta principal de donación */
   donationCard: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
   },
 
-  /* Selector */
   toggleContainer: {
     backgroundColor: '#f1f5f9',
     borderRadius: 12,
     padding: 4,
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 18,
   },
 
   toggleButton: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 8,
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -449,7 +620,7 @@ const styles = StyleSheet.create({
   },
 
   toggleText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#64748b',
   },
@@ -458,110 +629,85 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
 
-  /* Título */
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: '#0f172a',
+    marginBottom: 8,
+  },
+
+  helperText: {
+    color: '#64748b',
+    fontSize: 13,
+    lineHeight: 19,
     marginBottom: 14,
   },
 
-  /* Montos */
   gridAmounts: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 8,
   },
 
   amountCard: {
     width: '48%',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingVertical: 18,
+    borderRadius: 10,
+    paddingVertical: 14,
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    marginBottom: 12,
-    position: 'relative',
+    marginBottom: 10,
   },
 
   amountCardSelected: {
-    backgroundColor: '#e0e7ff',
-    borderColor: '#1d4ed8',
+    backgroundColor: '#eff6ff',
+    borderColor: '#1d64b4',
   },
 
   amountText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#0f172a',
   },
 
   amountTextSelected: {
-    color: '#1d4ed8',
+    color: '#1d64b4',
   },
 
-  /* Etiqueta popular */
-  popularTag: {
-    position: 'absolute',
-    top: -8,
-    right: -4,
-    backgroundColor: '#1e64b4',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-  },
-
-  popularText: {
-    color: '#ffffff',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-
-  /* Monto personalizado */
-  customAmountContainer: {
-    marginBottom: 20,
-  },
-
-  customLabel: {
-    fontSize: 11,
-    color: '#64748b',
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginTop: 8,
     marginBottom: 6,
-    fontWeight: '500',
   },
 
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  input: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
     paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#0f172a',
     backgroundColor: '#ffffff',
   },
 
-  inputWrapperSelected: {
-    borderColor: '#1d4ed8',
-    backgroundColor: '#eff6ff',
+  noteInput: {
+    minHeight: 72,
+    textAlignVertical: 'top',
   },
 
-  currencySymbol: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginRight: 8,
+  disclaimer: {
+    color: '#64748b',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 12,
+    marginBottom: 14,
   },
 
-  customInput: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0f172a',
-  },
-
-  /* Botón de donación */
   submitButton: {
     width: '100%',
     paddingVertical: 14,
@@ -571,62 +717,100 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  buttonDisabled: {
+    opacity: 0.65,
+  },
+
   submitButtonText: {
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '700',
   },
 
-  /* Texto de donación de insumos */
   supermercadoContainer: {
-    paddingVertical: 20,
+    paddingVertical: 10,
   },
 
-  supermercadoText: {
-    textAlign: 'center',
-    color: '#64748b',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
-  /* Contenedor de las tarjetas externas */
   infoContainer: {
     marginTop: 16,
     gap: 14,
   },
 
-  /* Tarjetas informativas */
   infoBox: {
     backgroundColor: '#ffffff',
     borderRadius: 14,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#000',
+    borderColor: '#e2e8f0',
+    alignItems: 'flex-start',
   },
 
   infoTitle: {
-    fontSize: 20,
-    fontStyle: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#1D3D47',
     marginBottom: 10,
   },
 
-  infoText: {
-    display: 'flex',
-    alignItems: 'flex-end',
-    fontSize: 13,
-    color: '#64748b',
-    lineHeight: 22,
-  },
-
   linkText: {
     marginTop: 10,
-    fontSize: 15,
+    fontSize: 14,
     color: '#1d4ed8',
-    fontStyle: 'underline',
+    textDecorationLine: 'underline',
   },
-  
 
+  historyCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+
+  emptyText: {
+    color: '#64748b',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+
+  historyItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    gap: 10,
+  },
+
+  historyInfo: {
+    flex: 1,
+  },
+
+  historyAmount: {
+    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  historyDate: {
+    color: '#64748b',
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  historyNote: {
+    color: '#475569',
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  historyStatus: {
+    color: '#1d64b4',
+    fontSize: 11,
+    fontWeight: '700',
+  },
 });
 
 export default Donar;
