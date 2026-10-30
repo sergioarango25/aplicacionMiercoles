@@ -1,14 +1,15 @@
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
+  View,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -16,8 +17,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { auth, db } from "../firebaseConfig.js";
 
 import {
-  collection,
   addDoc,
+  collection,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -106,7 +107,7 @@ export default function Help() {
           <Ionicons
             name="alert-circle-outline"
             size={50}
-            color="#0f172a"
+            color="#FFFFFF"
           />
         </View>
 
@@ -117,7 +118,7 @@ export default function Help() {
         <Ionicons
           name="information-circle-outline"
           size={24}
-          color="#0f172a"
+          color="#12343F"
         />
 
         <Text style={styles.infoText}>
@@ -147,7 +148,7 @@ export default function Help() {
               <Ionicons
                 name={tipo.icono}
                 size={25}
-                color={seleccionado ? "#FFFFFF" : "#1d4ed8"}
+                color={seleccionado ? "#FFFFFF" : "#12343F"}
               />
 
               <Text
@@ -170,7 +171,7 @@ export default function Help() {
       <TextInput
         style={styles.textArea}
         placeholder="Ejemplo: Necesitamos médicos para atender a varias personas en la zona..."
-        placeholderTextColor="#999"
+        placeholderTextColor="#98A3A6"
         multiline
         numberOfLines={6}
         maxLength={500}
@@ -214,7 +215,7 @@ export default function Help() {
         <Ionicons
           name="warning-outline"
           size={30}
-          color="#0f172a"
+          color="#12343F"
         />
 
         <Text style={styles.warningText}>
@@ -227,15 +228,22 @@ export default function Help() {
   );
 }
 
+const SERIF = Platform.select({
+  ios: "Georgia",
+  android: "serif",
+  default: "Georgia, serif",
+});
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F6F8",
+    backgroundColor: "#F6F4EF",
   },
 
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 22,
+    paddingBottom: 48,
+    paddingTop: 28,
   },
 
   header: {
@@ -244,44 +252,55 @@ const styles = StyleSheet.create({
   },
 
   iconHeader: {
-    width: 65,
-    height: 65,
-    borderRadius: 50,
-    backgroundColor: "#E0E7FF",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#12343F",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 14,
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 4,
   },
 
   title: {
-    fontSize: 27,
-    fontWeight: "bold",
-    color: "#222",
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#12242B",
     textAlign: "center",
+    letterSpacing: 0.3,
+    fontFamily: SERIF,
   },
 
   infoBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF7ED",
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: "#F6EFE0",
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 25,
+    borderWidth: 1,
+    borderColor: "#E8DCC0",
   },
 
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: "#000",
+    color: "#3B4A50",
     marginLeft: 10,
     lineHeight: 20,
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#222",
+    fontSize: 19,
+    fontWeight: "700",
+    color: "#12242B",
     marginBottom: 12,
+    letterSpacing: 0.2,
+    fontFamily: SERIF,
   },
 
   optionsContainer: {
@@ -293,28 +312,39 @@ const styles = StyleSheet.create({
 
   option: {
     width: "48%",
-    minHeight: 90,
+    minHeight: 96,
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
     padding: 10,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#E6E1D6",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
 
   optionSelected: {
-    backgroundColor: "#1d4ed8",
-    borderColor: "#1d4ed8",
+    backgroundColor: "#12343F",
+    borderColor: "#12343F",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
   },
 
   optionText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#333",
+    color: "#2C3B41",
     marginTop: 7,
     textAlign: "center",
+    letterSpacing: 0.2,
   },
 
   optionTextSelected: {
@@ -324,31 +354,38 @@ const styles = StyleSheet.create({
   textArea: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 14,
+    borderColor: "#D9D3C5",
+    borderRadius: 18,
     minHeight: 140,
-    padding: 15,
+    padding: 16,
     fontSize: 15,
-    color: "#333",
+    color: "#2C3B41",
     marginBottom: 5,
   },
 
   counter: {
     textAlign: "right",
-    color: "#888",
+    color: "#7C898D",
     fontSize: 12,
     marginBottom: 20,
   },
 
   button: {
-    minHeight: 52,
-    backgroundColor: "#0f172a",
-    borderRadius: 13,
+    minHeight: 56,
+    backgroundColor: "#12343F",
+    borderRadius: 16,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
     marginBottom: 20,
+    borderBottomWidth: 2,
+    borderBottomColor: "#A8803A",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
   },
 
   buttonDisabled: {
@@ -358,20 +395,23 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
 
   warningBox: {
     flexDirection: "row",
-    backgroundColor: "#FEF3C7",
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: "#F6EFE0",
+    borderRadius: 16,
+    padding: 16,
     alignItems: "flex-start",
+    borderWidth: 1,
+    borderColor: "#E8DCC0",
   },
 
   warningText: {
     flex: 1,
-    color: "#92400E",
+    color: "#7A5A1E",
     fontSize: 13,
     lineHeight: 19,
     marginLeft: 9,

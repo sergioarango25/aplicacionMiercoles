@@ -1,18 +1,18 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   StyleSheet,
-  View,
   Text,
   TouchableOpacity,
+  View,
 } from "react-native";
 
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import Home from "./screens/Home";
 import Map from "./screens/Map";
-import Help from "./screens/help";
 import Donate from "./screens/donar";
+import Help from "./screens/help";
 import Profile from "./screens/perfilesUsuario";
 
 const TABS = [
