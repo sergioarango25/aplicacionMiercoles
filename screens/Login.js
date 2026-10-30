@@ -1,5 +1,5 @@
-import React, { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { useState } from "react";
 import { auth } from "../firebaseConfig.js";
 
 export default function InicioSesion() {

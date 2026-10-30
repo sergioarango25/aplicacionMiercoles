@@ -1,12 +1,12 @@
-
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
   ImageBackground,
   ScrollView,
-  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -17,9 +17,20 @@ import { db } from "../firebaseConfig.js";
 import {
   collection,
   onSnapshot,
-  query,
   orderBy,
+  query,
 } from "firebase/firestore";
+
+const TIPOS_FILTRO = [
+  "Todos",
+  "Médicos",
+  "Primeros auxilios",
+  "Voluntarios",
+  "Rescate",
+  "Alimentos",
+  "Agua y suministros",
+  "Refugio",
+];
 
 export default function Home() {
   const [fontsLoaded] = useFonts({
@@ -30,6 +41,8 @@ export default function Home() {
   const [solicitudes, setSolicitudes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [errorSolicitudes, setErrorSolicitudes] = useState(false);
+  const [filtro, setFiltro] = useState("Todos");
+  const [verFiltros, setVerFiltros] = useState(false);
 
   useEffect(() => {
     const consulta = query(
@@ -62,7 +75,7 @@ export default function Home() {
   if (!fontsLoaded) {
     return (
       <View style={styles.cargandoPantalla}>
-        <ActivityIndicator size="large" color="#1D3D47" />
+        <ActivityIndicator size="large" color="#12343F" />
       </View>
     );
   }
@@ -105,23 +118,28 @@ export default function Home() {
   const obtenerColorEstado = (estado) => {
     if (estado === "Atendida" || estado === "Resuelta") {
       return {
-        fondo: "#DDF5E7",
-        texto: "#247448",
+        fondo: "#E3F0E8",
+        texto: "#2F6B4F",
       };
     }
 
     if (estado === "En proceso") {
       return {
-        fondo: "#FFF0D5",
-        texto: "#925D12",
+        fondo: "#F6EBD2",
+        texto: "#7A5A1E",
       };
     }
 
     return {
-      fondo: "#E8EEF9",
-      texto: "#3158A5",
+      fondo: "#E4ECF1",
+      texto: "#2F5470",
     };
   };
+
+  const solicitudesFiltradas =
+    filtro === "Todos"
+      ? solicitudes
+      : solicitudes.filter((s) => s.tipoAyuda === filtro);
 
   return (
     <ScrollView
@@ -147,7 +165,7 @@ export default function Home() {
             <Ionicons
               name="hand-left-outline"
               size={25}
-              color="#1D3D47"
+              color="#FFFFFF"
             />
           </View>
 
@@ -160,20 +178,88 @@ export default function Home() {
         </View>
 
         {!cargando && !errorSolicitudes && (
-          <View style={styles.contador}>
-            <Text style={styles.textoContador}>
-              {solicitudes.length}{" "}
-              {solicitudes.length === 1
-                ? "solicitud registrada"
-                : "solicitudes registradas"}
-            </Text>
-          </View>
+          <>
+            <View style={styles.filaContador}>
+              <View style={styles.contador}>
+                <Text style={styles.textoContador}>
+                  {solicitudesFiltradas.length}{" "}
+                  {solicitudesFiltradas.length === 1
+                    ? "solicitud registrada"
+                    : "solicitudes registradas"}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.botonFiltro,
+                  filtro !== "Todos" && styles.botonFiltroActivo,
+                ]}
+                onPress={() => setVerFiltros(!verFiltros)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="filter-outline"
+                  size={15}
+                  color={filtro !== "Todos" ? "#FFFFFF" : "#12343F"}
+                />
+                <Text
+                  style={[
+                    styles.textoBotonFiltro,
+                    filtro !== "Todos" && { color: "#FFFFFF" },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {filtro === "Todos" ? "Filtros" : filtro}
+                </Text>
+                <Ionicons
+                  name={verFiltros ? "chevron-up" : "chevron-down"}
+                  size={15}
+                  color={filtro !== "Todos" ? "#FFFFFF" : "#12343F"}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {verFiltros && (
+              <View style={styles.panelFiltros}>
+                {TIPOS_FILTRO.map((tipo) => {
+                  const activo = filtro === tipo;
+                  return (
+                    <TouchableOpacity
+                      key={tipo}
+                      style={[styles.chip, activo && styles.chipActivo]}
+                      onPress={() => {
+                        setFiltro(tipo);
+                        setVerFiltros(false);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      {tipo !== "Todos" && (
+                        <Ionicons
+                          name={obtenerIcono(tipo)}
+                          size={14}
+                          color={activo ? "#FFFFFF" : "#12343F"}
+                        />
+                      )}
+                      <Text
+                        style={[
+                          styles.chipTexto,
+                          activo && { color: "#FFFFFF" },
+                        ]}
+                      >
+                        {tipo}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </>
         )}
 
         {/* Cargando */}
         {cargando && (
           <View style={styles.estadoContenedor}>
-            <ActivityIndicator size="large" color="#1D3D47" />
+            <ActivityIndicator size="large" color="#12343F" />
             <Text style={styles.textoEstado}>
               Cargando solicitudes...
             </Text>
@@ -186,7 +272,7 @@ export default function Home() {
             <Ionicons
               name="cloud-offline-outline"
               size={38}
-              color="#9A5555"
+              color="#9C3F3F"
             />
 
             <Text style={styles.textoError}>
@@ -208,7 +294,7 @@ export default function Home() {
               <Ionicons
                 name="document-text-outline"
                 size={42}
-                color="#8A9A9E"
+                color="#8C979A"
               />
 
               <Text style={styles.textoVacio}>
@@ -222,10 +308,24 @@ export default function Home() {
             </View>
           )}
 
+        {/* Sin resultados para el filtro */}
+        {!cargando &&
+          !errorSolicitudes &&
+          solicitudes.length > 0 &&
+          solicitudesFiltradas.length === 0 && (
+            <View style={styles.estadoContenedor}>
+              <Ionicons name="search-outline" size={38} color="#8C979A" />
+              <Text style={styles.textoVacio}>Sin resultados</Text>
+              <Text style={styles.textoEstado}>
+                No hay solicitudes de tipo "{filtro}".
+              </Text>
+            </View>
+          )}
+
         {/* Lista de solicitudes */}
         {!cargando &&
           !errorSolicitudes &&
-          solicitudes.map((solicitud) => {
+          solicitudesFiltradas.map((solicitud) => {
             const colorEstado = obtenerColorEstado(
               solicitud.estado
             );
@@ -240,7 +340,7 @@ export default function Home() {
                     <Ionicons
                       name={obtenerIcono(solicitud.tipoAyuda)}
                       size={25}
-                      color="#1D3D47"
+                      color="#12343F"
                     />
                   </View>
 
@@ -295,7 +395,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F8F9",
+    backgroundColor: "#F6F4EF",
   },
 
   content: {
@@ -306,17 +406,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F5F8F9",
+    backgroundColor: "#F6F4EF",
   },
 
   background: {
     width: "100%",
-    height: 450,
+    height: 380,
   },
 
   backgroundImage: {
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
 
   overlay: {
@@ -334,8 +434,8 @@ const styles = StyleSheet.create({
   },
 
   seccionSolicitudes: {
-    paddingHorizontal: 18,
-    paddingTop: 25,
+    paddingHorizontal: 20,
+    paddingTop: 28,
   },
 
   encabezadoSolicitudes: {
@@ -345,10 +445,10 @@ const styles = StyleSheet.create({
   },
 
   iconoEncabezado: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "#DCECEF",
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: "#12343F",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -359,40 +459,112 @@ const styles = StyleSheet.create({
   },
 
   tituloSolicitudes: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
-    color: "#1D3D47",
+    color: "#12343F",
+    letterSpacing: 0.3,
+  },
+
+  filaContador: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 15,
+  },
+
+  botonFiltro: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#12343F",
+    maxWidth: 170,
+  },
+
+  botonFiltroActivo: {
+    backgroundColor: "#12343F",
+  },
+
+  textoBotonFiltro: {
+    color: "#12343F",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    flexShrink: 1,
+  },
+
+  panelFiltros: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 15,
+  },
+
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E6E1D6",
+    borderRadius: 18,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+
+  chipActivo: {
+    backgroundColor: "#12343F",
+    borderColor: "#12343F",
+  },
+
+  chipTexto: {
+    color: "#12343F",
+    fontSize: 12,
+    fontWeight: "600",
   },
 
   contador: {
     alignSelf: "flex-start",
-    backgroundColor: "#E5EFF1",
+    backgroundColor: "#F6EFE0",
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
-    marginBottom: 15,
+    marginBottom: 0,
+    borderWidth: 1,
+    borderColor: "#E8DCC0",
   },
 
   textoContador: {
-    color: "#1D3D47",
+    color: "#7A5A1E",
     fontSize: 12,
     fontWeight: "700",
+    letterSpacing: 0.4,
   },
 
   estadoContenedor: {
     backgroundColor: "#FFFFFF",
-    padding: 25,
-    borderRadius: 16,
+    padding: 28,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 5,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#E5ECEE",
+    borderColor: "#E6E1D6",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
   },
 
   textoEstado: {
-    color: "#72858A",
+    color: "#5E6F74",
     fontSize: 13,
     textAlign: "center",
     lineHeight: 20,
@@ -400,7 +572,7 @@ const styles = StyleSheet.create({
   },
 
   textoError: {
-    color: "#9A5555",
+    color: "#9C3F3F",
     fontSize: 15,
     fontWeight: "700",
     textAlign: "center",
@@ -408,7 +580,7 @@ const styles = StyleSheet.create({
   },
 
   textoVacio: {
-    color: "#1D3D47",
+    color: "#12343F",
     fontSize: 16,
     fontWeight: "700",
     textAlign: "center",
@@ -417,16 +589,16 @@ const styles = StyleSheet.create({
 
   tarjetaSolicitud: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 17,
-    padding: 16,
-    marginBottom: 13,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: "#E4ECEE",
-    elevation: 2,
-    shadowColor: "#1D3D47",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    borderColor: "#E6E1D6",
+    elevation: 3,
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
   },
 
   filaTarjeta: {
@@ -435,10 +607,10 @@ const styles = StyleSheet.create({
   },
 
   iconoSolicitud: {
-    width: 47,
-    height: 47,
-    borderRadius: 13,
-    backgroundColor: "#EAF3F4",
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    backgroundColor: "#EAEFEE",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 11,
@@ -449,20 +621,22 @@ const styles = StyleSheet.create({
   },
 
   tipoAyuda: {
-    color: "#1D3D47",
-    fontSize: 15,
+    color: "#12343F",
+    fontSize: 16,
     fontWeight: "800",
+    letterSpacing: 0.2,
   },
 
   fechaSolicitud: {
-    color: "#8A9A9E",
+    color: "#8C979A",
     fontSize: 11,
     marginTop: 5,
+    letterSpacing: 0.3,
   },
 
   estadoEtiqueta: {
     borderRadius: 20,
-    paddingHorizontal: 9,
+    paddingHorizontal: 11,
     paddingVertical: 6,
     marginLeft: 5,
   },
@@ -470,32 +644,38 @@ const styles = StyleSheet.create({
   textoEstadoEtiqueta: {
     fontSize: 10,
     fontWeight: "800",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
 
   divisorTarjeta: {
     height: 1,
-    backgroundColor: "#EDF1F2",
+    backgroundColor: "#EEEAE0",
     marginVertical: 14,
   },
 
   etiquetaDescripcion: {
-    color: "#72858A",
-    fontSize: 11,
+    color: "#5E6F74",
+    fontSize: 10,
     fontWeight: "700",
     marginBottom: 7,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
 
   descripcionSolicitud: {
-    color: "#374B50",
+    color: "#3B4A50",
     fontSize: 14,
     lineHeight: 21,
   },
 
   pieSolicitudes: {
-    color: "#72858A",
+    color: "#5E6F74",
     fontSize: 12,
     textAlign: "center",
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 14,
+    marginBottom: 24,
+    fontStyle: "italic",
+    letterSpacing: 0.3,
   },
 });

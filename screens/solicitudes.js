@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -16,9 +16,9 @@ import { auth, db } from "../firebaseConfig.js";
 import {
   collection,
   getDocs,
+  orderBy,
   query,
   where,
-  orderBy,
 } from "firebase/firestore";
 
 export default function Solicitudes() {
@@ -125,7 +125,7 @@ export default function Solicitudes() {
       <View style={styles.loadingContainer}>
         <ActivityIndicator
           size="large"
-          color="#D97706"
+          color="#A8803A"
         />
 
         <Text style={styles.loadingText}>
@@ -172,7 +172,7 @@ export default function Solicitudes() {
           <Ionicons
             name="checkmark-circle-outline"
             size={70}
-            color="#D97706"
+            color="#A8803A"
           />
 
           <Text style={styles.emptyTitle}>
@@ -203,7 +203,7 @@ export default function Solicitudes() {
                 <Ionicons
                   name={obtenerIcono(solicitud.tipoAyuda)}
                   size={25}
-                  color="#D97706"
+                  color="#A8803A"
                 />
 
               </View>
@@ -270,7 +270,7 @@ export default function Solicitudes() {
         <Ionicons
           name="refresh-outline"
           size={20}
-          color="#D97706"
+          color="#A8803A"
         />
 
         <Text style={styles.refreshText}>
@@ -286,24 +286,24 @@ export default function Solicitudes() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F6F8",
+    backgroundColor: "#F6F4EF",
   },
 
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 22,
+    paddingBottom: 48,
   },
 
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F5F6F8",
+    backgroundColor: "#F6F4EF",
   },
 
   loadingText: {
     marginTop: 10,
-    color: "#666",
+    color: "#5E6F74",
     fontSize: 15,
   },
 
@@ -313,25 +313,31 @@ const styles = StyleSheet.create({
   },
 
   headerIcon: {
-    width: 65,
-    height: 65,
-    borderRadius: 33,
-    backgroundColor: "#D97706",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#12343F",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 4,
   },
 
   title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#222",
+    fontSize: 25,
+    fontWeight: "800",
+    color: "#12242B",
     textAlign: "center",
+    letterSpacing: 0.3,
   },
 
   subtitle: {
     fontSize: 15,
-    color: "#666",
+    color: "#5E6F74",
     textAlign: "center",
     lineHeight: 21,
     marginTop: 8,
@@ -339,11 +345,16 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#E6E1D6",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 3,
   },
 
   cardHeader: {
@@ -353,10 +364,10 @@ const styles = StyleSheet.create({
   },
 
   typeIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#FFF7ED",
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#F6EFE0",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -366,9 +377,10 @@ const styles = StyleSheet.create({
   },
 
   typeTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "bold",
-    color: "#222",
+    color: "#12242B",
+    letterSpacing: 0.2,
   },
 
   statusContainer: {
@@ -381,74 +393,86 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#D97706",
+    backgroundColor: "#A8803A",
     marginRight: 6,
   },
 
   statusText: {
     fontSize: 13,
-    color: "#777",
+    color: "#66767B",
   },
 
   descriptionTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: "bold",
-    color: "#444",
+    color: "#5E6F74",
     marginBottom: 5,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
 
   description: {
     fontSize: 15,
-    color: "#555",
+    color: "#4A5A60",
     lineHeight: 22,
     marginBottom: 18,
   },
 
   helpButton: {
-    height: 48,
-    backgroundColor: "#D97706",
-    borderRadius: 12,
+    height: 50,
+    backgroundColor: "#12343F",
+    borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: "#A8803A",
   },
 
   helpButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "bold",
+    letterSpacing: 0.4,
   },
 
   emptyContainer: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 35,
     alignItems: "center",
     marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#E6E1D6",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
 
   emptyTitle: {
     fontSize: 19,
     fontWeight: "bold",
-    color: "#333",
+    color: "#2C3B41",
     marginTop: 15,
     textAlign: "center",
   },
 
   emptyText: {
     fontSize: 14,
-    color: "#777",
+    color: "#66767B",
     textAlign: "center",
     lineHeight: 20,
     marginTop: 8,
   },
 
   refreshButton: {
-    height: 48,
-    borderRadius: 12,
+    height: 50,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#D97706",
+    borderColor: "#12343F",
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -457,8 +481,9 @@ const styles = StyleSheet.create({
   },
 
   refreshText: {
-    color: "#D97706",
+    color: "#12343F",
     fontSize: 15,
     fontWeight: "bold",
+    letterSpacing: 0.3,
   },
 });

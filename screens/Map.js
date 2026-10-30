@@ -1,27 +1,28 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Alert,
   ActivityIndicator,
+  Alert,
+  Platform,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { WebView } from "react-native-webview";
 
-import { auth, db } from "../firebaseConfig";
 import {
-  collection,
   addDoc,
-  getDocs,
+  collection,
   deleteDoc,
   doc,
+  getDocs,
   query,
-  where,
   serverTimestamp,
+  where,
 } from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
 
 export default function Map() {
   const webViewRef = useRef(null);
@@ -783,7 +784,7 @@ export default function Map() {
             <TextInput
               style={styles.input}
               placeholder="Ej: Calle 5 # 10-20, Cali"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#98A3A6"
               value={direccion}
               onChangeText={setDireccion}
             />
@@ -833,7 +834,7 @@ export default function Map() {
           <TextInput
             style={styles.input}
             placeholder="Ej: Casa, Universidad, Trabajo..."
-            placeholderTextColor="#999999"
+            placeholderTextColor="#98A3A6"
             value={nombre}
             onChangeText={setNombre}
           />
@@ -876,7 +877,7 @@ export default function Map() {
 
           <ActivityIndicator
             size="large"
-            color="#2E7D32"
+            color="#2F6B4F"
             style={styles.cargando}
           />
 
@@ -970,32 +971,50 @@ export default function Map() {
 // ESTILOS
 // ============================================================
 
+const SERIF = Platform.select({
+  ios: "Georgia",
+  android: "serif",
+  default: "Georgia, serif",
+});
+
 const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: "#F5F7F5",
+    backgroundColor: "#F6F4EF",
   },
 
   encabezado: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#0D2832",
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 15,
+    paddingTop: 26,
+    paddingBottom: 22,
+    borderBottomWidth: 3,
+    borderBottomColor: "#A8803A",
+    marginBottom: 14,
   },
 
   titulo: {
-    fontSize: 35,
-    fontWeight: "bold",
-    color: "#222222",
+    fontSize: 30,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
+    fontFamily: SERIF,
   },
 
   mapaContainer: {
     height: 280,
     marginHorizontal: 15,
-    borderRadius: 18,
+    borderRadius: 22,
     overflow: "hidden",
     position: "relative",
+    borderWidth: 1,
+    borderColor: "#E6E1D6",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 4,
   },
 
   mapa: {
@@ -1009,14 +1028,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 15,
     paddingVertical: 11,
-    borderRadius: 12,
+    borderRadius: 14,
     elevation: 4,
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
 
   botonCentrarTexto: {
-    color: "#333333",
+    color: "#12343F",
     fontSize: 14,
     fontWeight: "bold",
+    letterSpacing: 0.3,
   },
 
   contenido: {
@@ -1027,9 +1051,11 @@ const styles = StyleSheet.create({
   tituloSeccion: {
     marginTop: 18,
     marginBottom: 12,
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#222222",
+    fontSize: 19,
+    fontWeight: "700",
+    color: "#12242B",
+    letterSpacing: 0.2,
+    fontFamily: SERIF,
   },
 
   opciones: {
@@ -1042,14 +1068,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 15,
-    padding: 15,
+    borderColor: "#E6E1D6",
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
 
   opcionSeleccionada: {
-    borderColor: "#2E7D32",
-    backgroundColor: "#E8F5E9",
+    borderColor: "#12343F",
+    backgroundColor: "#EEF3F2",
+    borderWidth: 1.5,
   },
 
   opcionIcono: {
@@ -1060,82 +1092,93 @@ const styles = StyleSheet.create({
   opcionTitulo: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#333333",
+    color: "#2C3B41",
   },
 
   opcionTituloSeleccionado: {
-    color: "#2E7D32",
+    color: "#12343F",
   },
 
   opcionTexto: {
     marginTop: 4,
     fontSize: 12,
-    color: "#777777",
+    color: "#66767B",
   },
 
   panel: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 15,
-    padding: 15,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#E6E1D6",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
 
   panelTitulo: {
-    fontSize: 17,
-    fontWeight: "bold",
-    color: "#222222",
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#12242B",
+    letterSpacing: 0.2,
+    fontFamily: SERIF,
   },
 
   panelTexto: {
     marginTop: 5,
     marginBottom: 12,
     fontSize: 13,
-    color: "#777777",
+    color: "#66767B",
     lineHeight: 18,
   },
 
   ubicacionSeleccionada: {
-    backgroundColor: "#E8F5E9",
-    padding: 12,
-    borderRadius: 10,
+    backgroundColor: "#E6F0EA",
+    padding: 14,
+    borderRadius: 14,
     marginTop: 5,
   },
 
   ubicacionTitulo: {
     fontSize: 14,
     fontWeight: "bold",
-    color: "#2E7D32",
+    color: "#2F6B4F",
   },
 
   ubicacionTexto: {
     marginTop: 5,
     fontSize: 12,
-    color: "#555555",
+    color: "#4A5A60",
   },
 
   input: {
-    backgroundColor: "#F8F8F8",
+    backgroundColor: "#FBFAF7",
     borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 12,
+    borderColor: "#D9D3C5",
+    borderRadius: 14,
     paddingHorizontal: 15,
     paddingVertical: 13,
     fontSize: 15,
-    color: "#222222",
+    color: "#12242B",
     marginBottom: 12,
   },
 
   botonBuscar: {
-    backgroundColor: "#1565C0",
-    paddingVertical: 14,
-    borderRadius: 12,
+    backgroundColor: "#12343F",
+    paddingVertical: 15,
+    borderRadius: 14,
     alignItems: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "#A8803A",
   },
 
   botonGuardar: {
-    backgroundColor: "#2E7D32",
+    backgroundColor: "#2F6B4F",
     paddingVertical: 15,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: "center",
     marginTop: 5,
   },
@@ -1148,23 +1191,32 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "bold",
+    letterSpacing: 0.4,
   },
 
   tituloLugares: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#222222",
+    fontSize: 21,
+    fontWeight: "700",
+    color: "#12242B",
     marginBottom: 12,
+    letterSpacing: 0.2,
+    fontFamily: SERIF,
   },
 
   tarjeta: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 13,
+    borderRadius: 18,
+    padding: 15,
     marginBottom: 10,
     flexDirection: "row",
     alignItems: "center",
     elevation: 2,
+    borderWidth: 1,
+    borderColor: "#E6E1D6",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
   },
 
   infoTarjeta: {
@@ -1177,7 +1229,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#E8F5E9",
+    backgroundColor: "#EAEFEE",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -1193,14 +1245,15 @@ const styles = StyleSheet.create({
 
   nombreLugar: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#222222",
+    fontWeight: "700",
+    color: "#12242B",
+    fontFamily: SERIF,
   },
 
   direccionLugar: {
     marginTop: 4,
     fontSize: 12,
-    color: "#777777",
+    color: "#66767B",
     lineHeight: 17,
   },
 
@@ -1215,9 +1268,11 @@ const styles = StyleSheet.create({
 
   vacio: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 15,
+    borderRadius: 20,
     padding: 25,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E6E1D6",
   },
 
   vacioIcono: {
@@ -1228,14 +1283,14 @@ const styles = StyleSheet.create({
   vacioTitulo: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333333",
+    color: "#2C3B41",
   },
 
   vacioTexto: {
     marginTop: 6,
     textAlign: "center",
     fontSize: 13,
-    color: "#777777",
+    color: "#66767B",
     lineHeight: 19,
   },
 
@@ -1248,3 +1303,4 @@ const styles = StyleSheet.create({
   },
 
 });
+

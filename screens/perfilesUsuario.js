@@ -1,32 +1,32 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
 
 import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
   onAuthStateChanged,
+  signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
 
 import {
   doc,
   getDoc,
+  serverTimestamp,
   setDoc,
   updateDoc,
-  serverTimestamp,
 } from "firebase/firestore";
 
 import { auth, db } from "../firebaseConfig";
@@ -413,7 +413,7 @@ export default function PerfilUsuario() {
       <View style={styles.cargandoContainer}>
         <ActivityIndicator
           size="large"
-          color="#1D3D47"
+          color="#12343F"
         />
         <Text style={styles.textoCargando}>
           Cargando perfil...
@@ -471,14 +471,14 @@ export default function PerfilUsuario() {
                   <Ionicons
                     name="person-outline"
                     size={20}
-                    color="#72858A"
+                    color="#5E6F74"
                   />
 
                   <TextInput
                     ref={nombreRef}
                     style={styles.input}
                     placeholder="Escribe tu nombre"
-                    placeholderTextColor="#9AA8AB"
+                    placeholderTextColor="#98A3A6"
                     value={nombre}
                     onChangeText={setNombre}
                     autoCapitalize="words"
@@ -510,14 +510,14 @@ export default function PerfilUsuario() {
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color="#72858A"
+                color="#5E6F74"
               />
 
               <TextInput
                 ref={emailRef}
                 style={styles.input}
                 placeholder="ejemplo@correo.com"
-                placeholderTextColor="#9AA8AB"
+                placeholderTextColor="#98A3A6"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -549,14 +549,14 @@ export default function PerfilUsuario() {
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
-                color="#72858A"
+                color="#5E6F74"
               />
 
               <TextInput
                 ref={passwordRef}
                 style={styles.input}
                 placeholder="Mínimo 6 caracteres"
-                placeholderTextColor="#9AA8AB"
+                placeholderTextColor="#98A3A6"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!mostrarPassword}
@@ -587,7 +587,7 @@ export default function PerfilUsuario() {
                       : "eye-outline"
                   }
                   size={21}
-                  color="#72858A"
+                  color="#5E6F74"
                 />
               </TouchableOpacity>
             </View>
@@ -609,14 +609,14 @@ export default function PerfilUsuario() {
                   <Ionicons
                     name="shield-checkmark-outline"
                     size={20}
-                    color="#72858A"
+                    color="#5E6F74"
                   />
 
                   <TextInput
                     ref={confirmPasswordRef}
                     style={styles.input}
                     placeholder="Repite tu contraseña"
-                    placeholderTextColor="#9AA8AB"
+                    placeholderTextColor="#98A3A6"
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     secureTextEntry={!mostrarConfirmPassword}
@@ -644,7 +644,7 @@ export default function PerfilUsuario() {
                           : "eye-outline"
                       }
                       size={21}
-                      color="#72858A"
+                      color="#5E6F74"
                     />
                   </TouchableOpacity>
                 </View>
@@ -723,7 +723,7 @@ export default function PerfilUsuario() {
           <Ionicons
             name="person"
             size={35}
-            color="#1D3D47"
+            color="#12343F"
           />
         </View>
 
@@ -751,7 +751,7 @@ export default function PerfilUsuario() {
           <Ionicons
             name="create-outline"
             size={17}
-            color="#1D3D47"
+            color="#12343F"
           />
           <Text style={styles.textoBotonEditar}>
             Editar
@@ -765,7 +765,7 @@ export default function PerfilUsuario() {
             <Ionicons
               name="people-outline"
               size={23}
-              color="#1D3D47"
+              color="#12343F"
             />
           </View>
 
@@ -787,7 +787,7 @@ export default function PerfilUsuario() {
             <Ionicons
               name="calendar-outline"
               size={23}
-              color="#1D3D47"
+              color="#12343F"
             />
           </View>
 
@@ -809,8 +809,8 @@ export default function PerfilUsuario() {
               {
                 backgroundColor:
                   user.disponible === false
-                    ? "#B85C5C"
-                    : "#4A9B76",
+                    ? "#A84A4A"
+                    : "#3F8A68",
               },
             ]}
           />
@@ -861,8 +861,8 @@ export default function PerfilUsuario() {
                   size={21}
                   color={
                     seleccionado
-                      ? "#1D3D47"
-                      : "#9AA8AB"
+                      ? "#12343F"
+                      : "#98A3A6"
                   }
                 />
               </TouchableOpacity>
@@ -885,7 +885,7 @@ export default function PerfilUsuario() {
               <Ionicons
                 name="checkmark-circle-outline"
                 size={19}
-                color={disponible ? "#FFFFFF" : "#1D3D47"}
+                color={disponible ? "#FFFFFF" : "#12343F"}
               />
 
               <Text
@@ -910,7 +910,7 @@ export default function PerfilUsuario() {
               <Ionicons
                 name="close-circle-outline"
                 size={19}
-                color={!disponible ? "#FFFFFF" : "#1D3D47"}
+                color={!disponible ? "#FFFFFF" : "#12343F"}
               />
 
               <Text
@@ -987,7 +987,7 @@ export default function PerfilUsuario() {
                     : "restaurant-outline"
                 }
                 size={25}
-                color="#1D3D47"
+                color="#12343F"
               />
             </View>
 
@@ -1013,7 +1013,7 @@ export default function PerfilUsuario() {
         <Ionicons
           name="log-out-outline"
           size={20}
-          color="#B64C4C"
+          color="#9C3F3F"
         />
 
         <Text style={styles.textoCerrarSesion}>
@@ -1027,22 +1027,28 @@ export default function PerfilUsuario() {
     </ScrollView>
   );
 }
+const SERIF = Platform.select({
+  ios: "Georgia",
+  android: "serif",
+  default: "Georgia, serif",
+});
+
 const styles = StyleSheet.create({
   contenedorPrincipal: {
     flex: 1,
-    backgroundColor: "#F5F8F9",
+    backgroundColor: "#F6F4EF",
   },
 
   cargandoContainer: {
     flex: 1,
-    backgroundColor: "#F5F8F9",
+    backgroundColor: "#F6F4EF",
     alignItems: "center",
     justifyContent: "center",
   },
 
   textoCargando: {
     marginTop: 12,
-    color: "#1D3D47",
+    color: "#12343F",
     fontSize: 14,
   },
 
@@ -1060,77 +1066,103 @@ const styles = StyleSheet.create({
   },
 
   logoCirculo: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: "#1D3D47",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#12343F",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 13,
+    borderWidth: 2,
+    borderColor: "#A8803A",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 4,
   },
 
   tituloAuth: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#1D3D47",
+    fontSize: 30,
+    fontWeight: "700",
+    color: "#12343F",
+    letterSpacing: 0.4,
+    fontFamily: SERIF,
   },
 
   authCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: 22,
+    borderRadius: 24,
+    padding: 24,
     borderWidth: 1,
-    borderColor: "#000000",
+    borderColor: "#E6E1D6",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 5,
+    borderTopWidth: 3,
+    borderTopColor: "#A8803A",
   },
 
   tituloCardAuth: {
     textAlign: "center",
     fontSize: 23,
-    fontWeight: "800",
-    color: "#1D3D47",
+    fontWeight: "700",
+    color: "#12343F",
+    letterSpacing: 0.3,
+    fontFamily: SERIF,
   },
 
   labelInput: {
-    color: "#1D3D47",
+    color: "#12343F",
     fontWeight: "700",
     fontSize: 13,
     marginBottom: 8,
     marginTop: 12,
+    letterSpacing: 0.3,
   },
 
   inputContenedor: {
-    minHeight: 51,
+    minHeight: 52,
     borderWidth: 1,
-    borderColor: "#DCE6E8",
-    borderRadius: 12,
+    borderColor: "#D9D3C5",
+    borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 13,
-    backgroundColor: "#FBFDFD",
+    backgroundColor: "#FBFAF7",
   },
 
   // Borde resaltado del campo seleccionado
   inputContenedorActivo: {
-    borderColor: "#1D3D47",
-    borderWidth: 2,
+    borderColor: "#12343F",
+    borderWidth: 1.5,
     backgroundColor: "#FFFFFF",
   },
 
   input: {
     flex: 1,
-    color: "#243E44",
+    color: "#12242B",
     fontSize: 14,
     paddingVertical: 12,
     paddingHorizontal: 10,
   },
 
   botonPrincipal: {
-    backgroundColor: "#1D3D47",
-    minHeight: 51,
-    borderRadius: 13,
+    backgroundColor: "#12343F",
+    minHeight: 54,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 24,
+    borderBottomWidth: 2,
+    borderBottomColor: "#A8803A",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
   },
 
   botonDeshabilitado: {
@@ -1141,6 +1173,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+    letterSpacing: 0.5,
   },
 
   cambiarModo: {
@@ -1153,12 +1186,12 @@ const styles = StyleSheet.create({
   },
 
   textoCambiarModo: {
-    color: "#000000",
+    color: "#5E6F74",
     fontSize: 13,
   },
 
   enlaceCambiarModo: {
-    color: "#1D3D47",
+    color: "#8F6B28",
     fontSize: 13,
     fontWeight: "800",
   },
@@ -1175,30 +1208,41 @@ const styles = StyleSheet.create({
   },
 
   tituloPerfil: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#1D3D47",
+    fontSize: 30,
+    fontWeight: "700",
+    color: "#12343F",
+    letterSpacing: 0.3,
+    fontFamily: SERIF,
   },
 
   tarjetaUsuario: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 22,
+    padding: 20,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E5ECEE",
+    borderColor: "#E6E1D6",
     marginBottom: 25,
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 3,
+    borderTopWidth: 3,
+    borderTopColor: "#A8803A",
   },
 
   avatar: {
     width: 65,
     height: 65,
     borderRadius: 33,
-    backgroundColor: "#DCECEF",
+    backgroundColor: "#EAEFEE",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
+    borderWidth: 2,
+    borderColor: "#A8803A",
   },
 
   datosUsuario: {
@@ -1206,13 +1250,15 @@ const styles = StyleSheet.create({
   },
 
   nombreUsuario: {
-    color: "#1D3D47",
-    fontSize: 18,
-    fontWeight: "800",
+    color: "#12343F",
+    fontSize: 19,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+    fontFamily: SERIF,
   },
 
   correoUsuario: {
-    color: "#72858A",
+    color: "#5E6F74",
     fontSize: 13,
     marginTop: 5,
   },
@@ -1225,34 +1271,41 @@ const styles = StyleSheet.create({
   },
 
   tituloSeccion: {
-    color: "#1D3D47",
-    fontSize: 19,
-    fontWeight: "800",
+    color: "#12343F",
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+    fontFamily: SERIF,
   },
 
   botonEditar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#DCECEF",
+    backgroundColor: "#EAEFEE",
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 9,
+    borderRadius: 12,
     gap: 5,
   },
 
   textoBotonEditar: {
-    color: "#1D3D47",
+    color: "#12343F",
     fontSize: 13,
     fontWeight: "700",
   },
 
   tarjetaInfo: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 17,
+    borderRadius: 20,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: "#E5ECEE",
+    borderColor: "#E6E1D6",
     marginBottom: 26,
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
 
   filaInfo: {
@@ -1264,8 +1317,8 @@ const styles = StyleSheet.create({
   iconoInfo: {
     width: 45,
     height: 45,
-    borderRadius: 13,
-    backgroundColor: "#EAF3F4",
+    borderRadius: 14,
+    backgroundColor: "#EDF1F0",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 13,
@@ -1276,12 +1329,12 @@ const styles = StyleSheet.create({
   },
 
   etiquetaInfo: {
-    color: "#72858A",
+    color: "#5E6F74",
     fontSize: 12,
   },
 
   valorInfo: {
-    color: "#1D3D47",
+    color: "#12343F",
     fontSize: 14,
     fontWeight: "700",
     marginTop: 5,
@@ -1289,7 +1342,7 @@ const styles = StyleSheet.create({
 
   separador: {
     height: 1,
-    backgroundColor: "#EDF1F2",
+    backgroundColor: "#EEEAE0",
   },
 
   puntoEstado: {
@@ -1302,21 +1355,27 @@ const styles = StyleSheet.create({
   // Formulario de edición
   tarjetaFormulario: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 17,
+    borderRadius: 22,
+    padding: 20,
     borderWidth: 1,
-    borderColor: "#DCE6E8",
+    borderColor: "#E6E1D6",
     marginBottom: 26,
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
   },
 
   tituloFormulario: {
-    fontSize: 19,
-    color: "#1D3D47",
-    fontWeight: "800",
+    fontSize: 20,
+    color: "#12343F",
+    fontWeight: "700",
+    fontFamily: SERIF,
   },
 
   labelRol: {
-    color: "#1D3D47",
+    color: "#12343F",
     fontSize: 14,
     fontWeight: "700",
     marginBottom: 10,
@@ -1324,10 +1383,10 @@ const styles = StyleSheet.create({
   },
 
   opcionRol: {
-    minHeight: 48,
+    minHeight: 50,
     borderWidth: 1,
-    borderColor: "#E2EAEC",
-    borderRadius: 11,
+    borderColor: "#E6E1D6",
+    borderRadius: 13,
     paddingHorizontal: 12,
     marginBottom: 8,
     flexDirection: "row",
@@ -1337,17 +1396,18 @@ const styles = StyleSheet.create({
   },
 
   opcionRolSeleccionada: {
-    borderColor: "#1D3D47",
-    backgroundColor: "#EDF5F6",
+    borderColor: "#12343F",
+    backgroundColor: "#EEF3F2",
+    borderWidth: 1.5,
   },
 
   textoOpcionRol: {
     fontSize: 13,
-    color: "#536B71",
+    color: "#5E6F74",
   },
 
   textoOpcionSeleccionada: {
-    color: "#1D3D47",
+    color: "#12343F",
     fontWeight: "700",
   },
 
@@ -1359,10 +1419,10 @@ const styles = StyleSheet.create({
 
   botonDisponibilidad: {
     flex: 1,
-    minHeight: 46,
-    borderRadius: 11,
+    minHeight: 48,
+    borderRadius: 13,
     borderWidth: 1,
-    borderColor: "#DCE6E8",
+    borderColor: "#E0DACB",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1371,12 +1431,12 @@ const styles = StyleSheet.create({
   },
 
   disponibilidadActiva: {
-    backgroundColor: "#1D3D47",
-    borderColor: "#1D3D47",
+    backgroundColor: "#12343F",
+    borderColor: "#12343F",
   },
 
   textoDisponibilidad: {
-    color: "#1D3D47",
+    color: "#12343F",
     fontSize: 11,
     fontWeight: "700",
   },
@@ -1393,26 +1453,28 @@ const styles = StyleSheet.create({
 
   botonCancelar: {
     flex: 1,
-    minHeight: 47,
-    borderRadius: 11,
+    minHeight: 50,
+    borderRadius: 13,
     borderWidth: 1,
-    borderColor: "#DCE6E8",
+    borderColor: "#E0DACB",
     alignItems: "center",
     justifyContent: "center",
   },
 
   textoBotonCancelar: {
-    color: "#536B71",
+    color: "#5E6F74",
     fontWeight: "700",
   },
 
   botonGuardar: {
     flex: 1,
-    minHeight: 47,
-    borderRadius: 11,
-    backgroundColor: "#1D3D47",
+    minHeight: 50,
+    borderRadius: 13,
+    backgroundColor: "#12343F",
     alignItems: "center",
     justifyContent: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "#A8803A",
   },
 
   textoBotonGuardar: {
@@ -1422,7 +1484,7 @@ const styles = StyleSheet.create({
 
   // Zonas
   descripcionZonas: {
-    color: "#72858A",
+    color: "#5E6F74",
     fontSize: 13,
     marginTop: -5,
     marginBottom: 14,
@@ -1438,31 +1500,36 @@ const styles = StyleSheet.create({
     width: 165,
     minHeight: 145,
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 15,
     borderWidth: 1,
-    borderColor: "#E5ECEE",
+    borderColor: "#E6E1D6",
+    shadowColor: "#0D2832",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
   },
 
   iconoZona: {
     width: 45,
     height: 45,
-    borderRadius: 13,
-    backgroundColor: "#DCECEF",
+    borderRadius: 14,
+    backgroundColor: "#EAEFEE",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 13,
   },
 
   nombreZona: {
-    color: "#1D3D47",
+    color: "#12343F",
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20,
   },
 
   distanciaZona: {
-    color: "#72858A",
+    color: "#5E6F74",
     fontSize: 12,
     marginTop: 6,
   },
@@ -1473,23 +1540,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#F0DCDC",
-    minHeight: 48,
-    borderRadius: 12,
+    borderColor: "#EBD3D3",
+    minHeight: 50,
+    borderRadius: 14,
     marginTop: 28,
     gap: 8,
   },
 
   textoCerrarSesion: {
-    color: "#B64C4C",
+    color: "#9C3F3F",
     fontSize: 14,
     fontWeight: "700",
+    letterSpacing: 0.3,
   },
 
   piePerfil: {
     textAlign: "center",
-    color: "#8A9A9E",
+    color: "#8C979A",
     fontSize: 12,
     marginTop: 20,
+    letterSpacing: 0.3,
   },
 });

@@ -1,18 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import LogoD1 from '../assets/img/Logo-d1.svg';
+import { useEffect, useState } from 'react';
 import LogoAra from '../assets/img/Logo-ara.svg';
+import LogoD1 from '../assets/img/Logo-d1.svg';
 import LogoExito from '../assets/img/Logo-exito.svg';
 
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ScrollView,
-  Linking,
   ActivityIndicator,
+  Alert,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import {
@@ -363,7 +364,7 @@ const Donar = () => {
             <TextInput
               style={styles.input}
               placeholder="Ej. 30000"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor="#98A3A6"
               value={customAmount}
               onChangeText={handleCustomAmountChange}
               onFocus={() => setSelectedAmount('custom')}
@@ -380,7 +381,7 @@ const Donar = () => {
             <TextInput
               style={styles.input}
               placeholder="Escribe tu nombre"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor="#98A3A6"
               value={donorName}
               onChangeText={setDonorName}
               autoCapitalize="words"
@@ -399,7 +400,7 @@ const Donar = () => {
                 styles.noteInput,
               ]}
               placeholder="¿Quieres dejar una nota? (máx. 250 caracteres)"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor="#98A3A6"
               value={note}
               onChangeText={setNote}
               maxLength={250}
@@ -511,7 +512,7 @@ const Donar = () => {
               Inicia sesión para guardar y consultar tus donaciones.
             </Text>
           ) : loading ? (
-            <ActivityIndicator color="#1d64b4" />
+            <ActivityIndicator color="#12343F" />
           ) : donations.length === 0 ? (
             <Text style={styles.emptyText}>
               Todavía no tienes donaciones registradas.
@@ -554,55 +555,75 @@ const Donar = () => {
   );
 };
 
+const SERIF = Platform.select({
+  ios: "Georgia",
+  android: "serif",
+  default: "Georgia, serif",
+});
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F6F4EF',
   },
 
   container: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: 20,
+    paddingBottom: 40,
   },
 
   heroCard: {
-    backgroundColor: '#002244',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: '#0D2832',
+    borderRadius: 22,
+    padding: 24,
     marginBottom: 16,
+    borderBottomWidth: 3,
+    borderBottomColor: '#A8803A',
+    shadowColor: '#0D2832',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
   },
 
   heroLabel: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1,
-    color: '#cbd5e1',
+    letterSpacing: 1.6,
+    color: '#D8C08A',
     marginBottom: 8,
   },
 
   heroValue: {
-    fontSize: 27,
-    fontWeight: '800',
-    color: '#ffffff',
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#E6D3A3',
+    letterSpacing: 0.3,
+    fontFamily: SERIF,
   },
 
   heroHint: {
-    color: '#dbeafe',
+    color: '#BFCDD1',
     fontSize: 12,
     marginTop: 6,
   },
 
   donationCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 22,
+    padding: 20,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#E6E1D6',
+    shadowColor: '#0D2832',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
   },
 
   toggleContainer: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
+    backgroundColor: '#EFEBE2',
+    borderRadius: 14,
     padding: 4,
     flexDirection: 'row',
     marginBottom: 18,
@@ -610,34 +631,41 @@ const styles = StyleSheet.create({
 
   toggleButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: 11,
+    borderRadius: 11,
     alignItems: 'center',
   },
 
   toggleActive: {
     backgroundColor: '#ffffff',
+    shadowColor: '#0D2832',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
   toggleText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: '#5E6F74',
   },
 
   toggleTextActive: {
-    color: '#0f172a',
+    color: '#12343F',
   },
 
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
-    color: '#0f172a',
+    color: '#12343F',
     marginBottom: 8,
+    letterSpacing: 0.2,
+    fontFamily: SERIF,
   },
 
   helperText: {
-    color: '#64748b',
+    color: '#5E6F74',
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 14,
@@ -653,45 +681,47 @@ const styles = StyleSheet.create({
   amountCard: {
     width: '48%',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderColor: '#E6E1D6',
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     backgroundColor: '#ffffff',
     marginBottom: 10,
   },
 
   amountCardSelected: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#1d64b4',
+    backgroundColor: '#F6EFE0',
+    borderColor: '#A8803A',
+    borderWidth: 1.5,
   },
 
   amountText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: '#12343F',
   },
 
   amountTextSelected: {
-    color: '#1d64b4',
+    color: '#7A5A1E',
   },
 
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: '#3B4A50',
     marginTop: 8,
     marginBottom: 6,
+    letterSpacing: 0.3,
   },
 
   input: {
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
+    borderColor: '#D9D3C5',
+    borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 13,
     fontSize: 15,
-    color: '#0f172a',
+    color: '#12343F',
     backgroundColor: '#ffffff',
   },
 
@@ -701,7 +731,7 @@ const styles = StyleSheet.create({
   },
 
   disclaimer: {
-    color: '#64748b',
+    color: '#5E6F74',
     fontSize: 11,
     lineHeight: 16,
     marginTop: 12,
@@ -710,11 +740,18 @@ const styles = StyleSheet.create({
 
   submitButton: {
     width: '100%',
-    paddingVertical: 14,
-    backgroundColor: '#1d64b4',
-    borderRadius: 12,
+    paddingVertical: 16,
+    backgroundColor: '#12343F',
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: '#A8803A',
+    shadowColor: '#0D2832',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
   },
 
   buttonDisabled: {
@@ -725,6 +762,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
 
   supermercadoContainer: {
@@ -738,38 +776,52 @@ const styles = StyleSheet.create({
 
   infoBox: {
     backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 18,
+    borderRadius: 20,
+    padding: 20,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#E6E1D6',
     alignItems: 'flex-start',
+    shadowColor: '#0D2832',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
 
   infoTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1D3D47',
+    color: '#12343F',
     marginBottom: 10,
+    letterSpacing: 0.2,
+    fontFamily: SERIF,
   },
 
   linkText: {
     marginTop: 10,
     fontSize: 14,
-    color: '#1d4ed8',
-    textDecorationLine: 'underline',
+    color: '#8F6B28',
+    textDecorationLine: 'none',
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 
   historyCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 22,
+    padding: 20,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#E6E1D6',
+    shadowColor: '#0D2832',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
   },
 
   emptyText: {
-    color: '#64748b',
+    color: '#5E6F74',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -780,7 +832,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: '#E6E1D6',
     gap: 10,
   },
 
@@ -789,27 +841,30 @@ const styles = StyleSheet.create({
   },
 
   historyAmount: {
-    color: '#0f172a',
-    fontSize: 15,
+    color: '#12343F',
+    fontSize: 17,
     fontWeight: '700',
+    fontFamily: SERIF,
   },
 
   historyDate: {
-    color: '#64748b',
+    color: '#5E6F74',
     fontSize: 12,
     marginTop: 4,
   },
 
   historyNote: {
-    color: '#475569',
+    color: '#4A5A60',
     fontSize: 12,
     marginTop: 4,
   },
 
   historyStatus: {
-    color: '#1d64b4',
+    color: '#8F6B28',
     fontSize: 11,
     fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
 });
 
