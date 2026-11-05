@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -17,7 +16,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import {
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -31,7 +29,8 @@ import {
   updateDoc,
 } from "firebase/firestore";
 
-import { auth, db } from "../firebaseConfig";
+import { httpsCallable } from "firebase/functions";
+import { auth, db, functions } from "../firebaseConfig";
 
 import {
   notificarRegistroExitoso,
@@ -74,6 +73,21 @@ export default function PerfilUsuario() {
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [mostrarConfirmPassword, setMostrarConfirmPassword] =
     useState(false);
+
+  // Verificación por código enviado al correo
+  const [etapaCodigo, setEtapaCodigo] = useState(false);
+  const [codigo, setCodigo] = useState("");
+  const [segundosReenvio, setSegundosReenvio] = useState(0);
+
+  // Cuenta regresiva para poder reenviar el código
+  useEffect(() => {
+    if (segundosReenvio <= 0) return;
+    const temporizador = setTimeout(
+      () => setSegundosReenvio((s) => s - 1),
+      1000
+    );
+    return () => clearTimeout(temporizador);
+  }, [segundosReenvio]);
 
   // Referencias para avanzar entre los campos
   const nombreRef = useRef(null);
@@ -238,11 +252,89 @@ export default function PerfilUsuario() {
       return;
     }
 
+    await enviarCodigo(correo);
+  };
+
+  // =====================================
+  // ENVIAR CÓDIGO DE VERIFICACIÓN AL CORREO
+  // =====================================
+
+  const enviarCodigo = async (correo) => {
     try {
       setGuardando(true);
 
-      // 1. CREAR USUARIO EN FIREBASE AUTHENTICATION
-      const credencial = await createUserWithEmailAndPassword(
+      await httpsCallable(
+        functions,
+        "enviarCodigoRegistro"
+      )({ email: correo });
+
+      setCodigo("");
+      setEtapaCodigo(true);
+      setSegundosReenvio(60);
+
+    } catch (error) {
+      console.log("Error enviando código:", error);
+
+      Alert.alert(
+        "No se pudo enviar el código",
+        mensajeDeError(error)
+      );
+
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const mensajeDeError = (error) =>
+    error?.code === "functions/unavailable" &&
+    !error?.message
+      ? "Revisa tu conexión a internet."
+      : error?.message ||
+        "Ocurrió un error. Inténtalo nuevamente.";
+
+  const reenviarCodigo = () => {
+    if (segundosReenvio > 0 || guardando) return;
+    enviarCodigo(email.trim().toLowerCase());
+  };
+
+  const cancelarVerificacion = () => {
+    setEtapaCodigo(false);
+    setCodigo("");
+    setSegundosReenvio(0);
+  };
+
+  // =====================================
+  // VERIFICAR CÓDIGO Y CREAR LA CUENTA
+  // =====================================
+
+  const confirmarCodigo = async () => {
+    const nombreLimpio = nombre.trim();
+    const correo = email.trim().toLowerCase();
+
+    if (!/^\d{6}$/.test(codigo)) {
+      Alert.alert(
+        "Código incompleto",
+        "Ingresa el código de 6 dígitos que enviamos a tu correo."
+      );
+      return;
+    }
+
+    try {
+      setGuardando(true);
+
+      // 1. VERIFICAR CÓDIGO Y CREAR CUENTA (en el servidor)
+      await httpsCallable(
+        functions,
+        "completarRegistro"
+      )({
+        email: correo,
+        codigo,
+        password,
+        nombre: nombreLimpio,
+      });
+
+      // 2. INICIAR SESIÓN CON LA CUENTA RECIÉN CREADA
+      const credencial = await signInWithEmailAndPassword(
         auth,
         correo,
         password
@@ -250,7 +342,6 @@ export default function PerfilUsuario() {
 
       const usuarioId = credencial.user.uid;
 
-      // 2. CREAR INFORMACIÓN DEL USUARIO
       const nuevoUsuario = {
         uid: usuarioId,
         nombre: nombreLimpio,
@@ -258,14 +349,7 @@ export default function PerfilUsuario() {
         rol: "usuario",
         tipoParticipacion: "Voluntario",
         disponible: true,
-        fechaRegistro: serverTimestamp(),
       };
-
-      // 3. GUARDAR PERFIL EN FIRESTORE
-      await setDoc(
-        doc(db, "usuarios", usuarioId),
-        nuevoUsuario
-      );
 
       // 4. ACTUALIZAR INFORMACIÓN EN PANTALLA
       setUser({
@@ -303,6 +387,8 @@ export default function PerfilUsuario() {
       }
 
       // 7. LIMPIAR FORMULARIO
+      setEtapaCodigo(false);
+      setCodigo("");
       setNombre("");
       setEmail("");
       setPassword("");
@@ -315,41 +401,11 @@ export default function PerfilUsuario() {
       );
 
     } catch (error) {
-      console.log(
-        "Error al registrar usuario:",
-        error
-      );
-
-      let mensaje =
-        "No se pudo crear la cuenta. Inténtalo nuevamente.";
-
-      if (error.code === "auth/email-already-in-use") {
-        mensaje =
-          "Este correo ya está registrado. Puedes iniciar sesión.";
-
-      } else if (error.code === "auth/invalid-email") {
-        mensaje =
-          "El correo electrónico no es válido.";
-
-      } else if (error.code === "auth/weak-password") {
-        mensaje =
-          "La contraseña es demasiado débil.";
-
-      } else if (error.code === "auth/network-request-failed") {
-        mensaje =
-          "Revisa tu conexión a internet.";
-
-      } else if (
-        error.code === "permission-denied" ||
-        error.code === "firestore/permission-denied"
-      ) {
-        mensaje =
-          "No se pudo guardar tu perfil. Revisa las reglas de seguridad de Firestore.";
-      }
+      console.log("Error al verificar el código:", error);
 
       Alert.alert(
-        "No se pudo registrar",
-        mensaje
+        "No se pudo completar el registro",
+        mensajeDeError(error)
       );
 
     } finally {
@@ -608,6 +664,92 @@ export default function PerfilUsuario() {
             </Text>
           </View>
 
+          {etapaCodigo ? (
+            <View style={styles.authCard}>
+              <Text style={styles.tituloCardAuth}>
+                Verifica tu correo
+              </Text>
+
+              <Text style={styles.textoVerificacion}>
+                Enviamos un código de 6 dígitos a{" "}
+                <Text style={styles.correoVerificacion}>
+                  {email.trim().toLowerCase()}
+                </Text>
+                . Revisa también la carpeta de spam.
+              </Text>
+
+              <TextInput
+                style={styles.inputCodigo}
+                placeholder="000000"
+                placeholderTextColor="#B8C1C4"
+                value={codigo}
+                onChangeText={(t) =>
+                  setCodigo(t.replace(/\D/g, "").slice(0, 6))
+                }
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+                textContentType="oneTimeCode"
+                autoComplete="sms-otp"
+                returnKeyType="done"
+                onSubmitEditing={confirmarCodigo}
+                editable={!guardando}
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.botonPrincipal,
+                  (guardando || codigo.length !== 6) &&
+                    styles.botonDeshabilitado,
+                ]}
+                onPress={confirmarCodigo}
+                disabled={guardando || codigo.length !== 6}
+                activeOpacity={0.8}
+              >
+                {guardando ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.textoBotonPrincipal}>
+                    Verificar y crear cuenta
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.cambiarModo}>
+                <Text style={styles.textoCambiarModo}>
+                  ¿No te llegó el código?
+                </Text>
+
+                <TouchableOpacity
+                  disabled={segundosReenvio > 0 || guardando}
+                  onPress={reenviarCodigo}
+                >
+                  <Text
+                    style={[
+                      styles.enlaceCambiarModo,
+                      segundosReenvio > 0 && {
+                        color: "#98A3A6",
+                      },
+                    ]}
+                  >
+                    {segundosReenvio > 0
+                      ? `Reenviar en ${segundosReenvio} s`
+                      : "Reenviar código"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.enlaceVolver}
+                disabled={guardando}
+                onPress={cancelarVerificacion}
+              >
+                <Text style={styles.enlaceCambiarModo}>
+                  Cambiar correo o datos
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View style={styles.authCard}>
             <Text style={styles.tituloCardAuth}>
               {modoRegistro
@@ -880,6 +1022,7 @@ export default function PerfilUsuario() {
               </TouchableOpacity>
             </View>
           </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -1366,6 +1509,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 4,
+  },
+
+  textoVerificacion: {
+    fontSize: 14,
+    color: "#4A5A60",
+    lineHeight: 21,
+    marginTop: 6,
+    marginBottom: 18,
+  },
+
+  correoVerificacion: {
+    fontWeight: "700",
+    color: "#12242B",
+  },
+
+  inputCodigo: {
+    backgroundColor: "#FBFAF7",
+    borderWidth: 1.5,
+    borderColor: "#12343F",
+    borderRadius: 14,
+    paddingVertical: 14,
+    fontSize: 30,
+    fontWeight: "700",
+    letterSpacing: 12,
+    textAlign: "center",
+    color: "#12242B",
+    marginBottom: 16,
+  },
+
+  enlaceVolver: {
+    alignItems: "center",
+    marginTop: 14,
   },
 
   botonDeshabilitado: {

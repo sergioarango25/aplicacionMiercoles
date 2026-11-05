@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -10,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import { WebView } from "react-native-webview";
 
 import {
@@ -24,8 +29,77 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
 
+// ==============================
+// CACHÉ (AsyncStorage con vencimiento)
+// ==============================
+
+const HORA = 60 * 60 * 1000;
+const TTL_DIRECCIONES = 24 * HORA; // direcciones guardadas
+const TTL_GEOCODIFICACION = 30 * 24 * HORA; // búsquedas / geocodificación inversa
+const TTL_POSICION = 7 * 24 * HORA; // última posición conocida
+
+const cacheGuardar = async (clave, valor) => {
+  try {
+    await AsyncStorage.setItem(
+      `mapa:${clave}`,
+      JSON.stringify({ t: Date.now(), v: valor })
+    );
+  } catch (e) {
+    console.log("Error guardando caché:", e);
+  }
+};
+
+// Devuelve { valor, vencido } o null si no existe
+const cacheLeer = async (clave, ttl) => {
+  try {
+    const crudo = await AsyncStorage.getItem(`mapa:${clave}`);
+    if (!crudo) return null;
+    const { t, v } = JSON.parse(crudo);
+    return { valor: v, vencido: Date.now() - t > ttl };
+  } catch (e) {
+    return null;
+  }
+};
+
+// ==============================
+// COORDENADAS
+// ==============================
+
+const CALI = { latitude: 3.4516, longitude: -76.532 };
+
+// Caja aproximada de Cali y alrededores (para priorizar búsquedas)
+// formato Nominatim: left,top,right,bottom
+const VIEWBOX_CALI = "-76.65,3.55,-76.40,3.30";
+
+// Redondea a 6 decimales (~11 cm), limita a rangos válidos
+// y ajusta la longitud si el mapa se desplazó más de 180°
+const normalizarCoordenadas = (lat, lng) => {
+  const latitude = Number(lat);
+  let longitude = Number(lng);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  longitude = ((((longitude + 180) % 360) + 360) % 360) - 180;
+
+  if (latitude < -90 || latitude > 90) return null;
+
+  return {
+    latitude: Number(latitude.toFixed(6)),
+    longitude: Number(longitude.toFixed(6)),
+  };
+};
+
+const claveCoordenadas = (lat, lng) =>
+  `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
+
 export default function Map() {
   const webViewRef = useRef(null);
+  const posicionInicial = useRef(null);
+  const scrollRef = useRef(null);
+  const [tecladoVisible, setTecladoVisible] = useState(false);
+  const [alturaTeclado, setAlturaTeclado] = useState(0);
 
   // ==============================
   // ESTADOS
@@ -47,6 +121,8 @@ export default function Map() {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [buscando, setBuscando] = useState(false);
+  const [ubicando, setUbicando] = useState(false);
+  const [precision, setPrecision] = useState(null);
 
   // ==============================
   // CARGAR DIRECCIONES DE FIREBASE
@@ -54,9 +130,57 @@ export default function Map() {
 
   useEffect(() => {
     cargarDirecciones();
+    restaurarUltimaPosicion();
   }, []);
 
-  const cargarDirecciones = async () => {
+  // Detectar teclado: se oculta el mapa mientras se escribe
+  // y se deja espacio para que el campo quede visible
+  useEffect(() => {
+    const mostrar = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => {
+        setTecladoVisible(true);
+        setAlturaTeclado(e.endCoordinates?.height || 0);
+      }
+    );
+    const ocultar = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        setTecladoVisible(false);
+        setAlturaTeclado(0);
+      }
+    );
+    return () => {
+      mostrar.remove();
+      ocultar.remove();
+    };
+  }, []);
+
+  // Restaura la última posición conocida (caché) para que el mapa
+  // abra de inmediato donde el usuario estaba
+  const restaurarUltimaPosicion = async () => {
+    const guardada = await cacheLeer("ultimaPosicion", TTL_POSICION);
+    if (guardada && !guardada.vencido) {
+      const c = normalizarCoordenadas(
+        guardada.valor.latitude,
+        guardada.valor.longitude
+      );
+      if (c) {
+        setLatitudSeleccionada(c.latitude);
+        setLongitudSeleccionada(c.longitude);
+        posicionInicial.current = c;
+        moverMapa(c.latitude, c.longitude);
+      }
+    }
+  };
+
+  const moverMapa = (lat, lng, zoom = 15) => {
+    webViewRef.current?.injectJavaScript(
+      `if (typeof irA === "function") { irA(${lat}, ${lng}, ${zoom}); } true;`
+    );
+  };
+
+  const cargarDirecciones = async (forzar = false) => {
     try {
       const usuario = auth.currentUser;
 
@@ -65,6 +189,19 @@ export default function Map() {
         return;
       }
 
+      const claveLista = `direcciones:${usuario.uid}`;
+
+      // 1) Mostrar al instante lo que hay en caché
+      const enCache = await cacheLeer(claveLista, TTL_DIRECCIONES);
+      if (enCache) {
+        setDirecciones(enCache.valor);
+        setCargando(false);
+
+        // Caché vigente y no forzado: no hace falta ir a Firebase
+        if (!enCache.vencido && !forzar) return;
+      }
+
+      // 2) Actualizar desde Firebase
       const consulta = query(
         collection(db, "direcciones"),
         where("userId", "==", usuario.uid)
@@ -78,13 +215,17 @@ export default function Map() {
       }));
 
       setDirecciones(lista);
+      await cacheGuardar(claveLista, lista);
     } catch (error) {
       console.log("Error cargando direcciones:", error);
 
-      Alert.alert(
-        "Error",
-        "No fue posible cargar tus direcciones."
-      );
+      // Si hay caché (aunque esté vencido) ya se mostró; solo avisar si no hay nada
+      if (direcciones.length === 0) {
+        Alert.alert(
+          "Error",
+          "No fue posible cargar tus direcciones."
+        );
+      }
     } finally {
       setCargando(false);
     }
@@ -94,7 +235,7 @@ export default function Map() {
   // HTML DEL MAPA
   // ==============================
 
-  const mapaHTML = `
+  const mapaHTML = useMemo(() => `
     <!DOCTYPE html>
 
     <html>
@@ -140,18 +281,128 @@ export default function Map() {
 
       <script>
 
-        const map = L.map("map").setView(
-          [3.4516, -76.5320],
+        const map = L.map("map", {
+          worldCopyJump: true,
+          maxBounds: [[-85, -180], [85, 180]],
+          maxBoundsViscosity: 1.0
+        }).setView(
+          [${CALI.latitude}, ${CALI.longitude}],
           13
         );
 
-        L.tileLayer(
-          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          {
-            maxZoom: 19,
-            attribution: "&copy; OpenStreetMap contributors"
+        // ==========================================
+        // CACHÉ DE TESELAS (IndexedDB)
+        // Guarda cada tesela descargada y la reutiliza
+        // (también sin internet). Si IndexedDB falla,
+        // usa la red normalmente.
+        // ==========================================
+
+        const TILE_TTL = 14 * 24 * 60 * 60 * 1000;
+        const TILE_MAX = 1500;
+        let tileDB = null;
+
+        const abrirTileDB = () => new Promise((resolve) => {
+          try {
+            const req = indexedDB.open("tiles-mapa", 1);
+            req.onupgradeneeded = () => {
+              req.result.createObjectStore("tiles");
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+          } catch (e) { resolve(null); }
+        });
+
+        const tileGet = (key) => new Promise((resolve) => {
+          if (!tileDB) return resolve(null);
+          try {
+            const r = tileDB
+              .transaction("tiles")
+              .objectStore("tiles")
+              .get(key);
+            r.onsuccess = () => resolve(r.result || null);
+            r.onerror = () => resolve(null);
+          } catch (e) { resolve(null); }
+        });
+
+        const tilePut = (key, blob) => {
+          if (!tileDB) return;
+          try {
+            const store = tileDB
+              .transaction("tiles", "readwrite")
+              .objectStore("tiles");
+            store.put({ blob: blob, t: Date.now() }, key);
+            const c = store.count();
+            c.onsuccess = () => {
+              if (c.result > TILE_MAX) {
+                const k = store.openCursor();
+                let borrar = c.result - TILE_MAX;
+                k.onsuccess = () => {
+                  const cur = k.result;
+                  if (cur && borrar-- > 0) {
+                    cur.delete();
+                    cur.continue();
+                  }
+                };
+              }
+            };
+          } catch (e) {}
+        };
+
+        const CapaCache = L.TileLayer.extend({
+          createTile: function(coords, done) {
+            const img = document.createElement("img");
+            img.alt = "";
+            img.setAttribute("role", "presentation");
+            const url = this.getTileUrl(coords);
+            const key = coords.z + "/" + coords.x + "/" + coords.y;
+
+            const desdeRed = () => {
+              fetch(url)
+                .then((r) => {
+                  if (!r.ok) throw new Error("tile");
+                  return r.blob();
+                })
+                .then((blob) => {
+                  tilePut(key, blob);
+                  img.src = URL.createObjectURL(blob);
+                })
+                .catch(() => {
+                  img.src = url; // último recurso
+                });
+            };
+
+            img.onload = () => done(null, img);
+            img.onerror = () => done(null, img);
+
+            tileGet(key).then((item) => {
+              if (item && item.blob) {
+                img.src = URL.createObjectURL(item.blob);
+                // refrescar en segundo plano si ya venció
+                if (Date.now() - item.t > TILE_TTL && navigator.onLine) {
+                  fetch(url)
+                    .then((r) => r.ok ? r.blob() : null)
+                    .then((b) => b && tilePut(key, b))
+                    .catch(() => {});
+                }
+              } else {
+                desdeRed();
+              }
+            });
+
+            return img;
           }
-        ).addTo(map);
+        });
+
+        abrirTileDB().then((db) => {
+          tileDB = db;
+          new CapaCache(
+            "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {
+              maxZoom: 19,
+              attribution: "&copy; OpenStreetMap contributors"
+            }
+          ).addTo(map);
+        });
 
         let marcadorSeleccionado = null;
 
@@ -226,6 +477,10 @@ export default function Map() {
         // FUNCION PARA MOSTRAR MARCADOR
         // ==========================================
 
+        function irA(lat, lng, zoom) {
+          map.setView([lat, lng], zoom || 15);
+        }
+
         function mostrarMarcador(lat, lng, nombre) {
 
           if (marcadorSeleccionado) {
@@ -237,9 +492,9 @@ export default function Map() {
             lng
           ]).addTo(map);
 
-          marcadorSeleccionado.bindPopup(
-            "<b>" + nombre + "</b>"
-          ).openPopup();
+          const titulo = document.createElement("b");
+          titulo.textContent = nombre;
+          marcadorSeleccionado.bindPopup(titulo).openPopup();
 
           map.setView(
             [lat, lng],
@@ -252,33 +507,42 @@ export default function Map() {
     </body>
 
     </html>
-  `;
+  `, []);
 
   // ==============================
   // RECIBIR UBICACIÓN DEL MAPA
   // ==============================
 
-  const seleccionarUbicacion = (event) => {
+  const seleccionarUbicacion = async (event) => {
     try {
       const datos = JSON.parse(
         event.nativeEvent.data
       );
 
-      if (datos.tipo === "ubicacion") {
+      if (datos.tipo !== "ubicacion") return;
 
-        setLatitudSeleccionada(
-          datos.latitude
-        );
+      const c = normalizarCoordenadas(
+        datos.latitude,
+        datos.longitude
+      );
 
-        setLongitudSeleccionada(
-          datos.longitude
-        );
+      if (!c) return;
 
-        setDireccion(
-          `${datos.latitude.toFixed(6)}, ${datos.longitude.toFixed(6)}`
-        );
+      setLatitudSeleccionada(c.latitude);
+      setLongitudSeleccionada(c.longitude);
+      setPrecision(null);
 
-      }
+      // Mientras llega la dirección real, mostrar coordenadas
+      const textoCoordenadas =
+        `${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}`;
+      setDireccion(textoCoordenadas);
+
+      const nombreLugar = await geocodificacionInversa(
+        c.latitude,
+        c.longitude
+      );
+
+      if (nombreLugar) setDireccion(nombreLugar);
 
     } catch (error) {
 
@@ -287,6 +551,121 @@ export default function Map() {
         error
       );
 
+    }
+  };
+
+  // ==============================
+  // GEOCODIFICACIÓN INVERSA (con caché)
+  // coordenadas -> dirección legible
+  // ==============================
+
+  const geocodificacionInversa = async (lat, lng) => {
+    const clave = `inversa:${claveCoordenadas(lat, lng)}`;
+
+    const enCache = await cacheLeer(clave, TTL_GEOCODIFICACION);
+    if (enCache && !enCache.vencido) return enCache.valor;
+
+    try {
+      const respuesta = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=es`,
+        {
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "Domingo-App",
+          },
+        }
+      );
+
+      const datos = await respuesta.json();
+
+      if (datos && datos.display_name) {
+        await cacheGuardar(clave, datos.display_name);
+        return datos.display_name;
+      }
+    } catch (error) {
+      console.log("Error en geocodificación inversa:", error);
+    }
+
+    // Sin red: usar caché vencido si existe
+    return enCache ? enCache.valor : null;
+  };
+
+  // ==============================
+  // USAR MI UBICACIÓN (GPS)
+  // ==============================
+
+  const usarMiUbicacion = async () => {
+    try {
+      setUbicando(true);
+
+      const permiso =
+        await Location.requestForegroundPermissionsAsync();
+
+      if (permiso.status !== "granted") {
+        Alert.alert(
+          "Permiso denegado",
+          "Activa el permiso de ubicación para usar tu posición actual."
+        );
+        return;
+      }
+
+      // Posición rápida (última conocida) para que el mapa responda ya
+      const rapida = await Location.getLastKnownPositionAsync();
+      if (rapida) {
+        moverMapa(rapida.coords.latitude, rapida.coords.longitude, 15);
+      }
+
+      // Posición precisa
+      const posicion = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const c = normalizarCoordenadas(
+        posicion.coords.latitude,
+        posicion.coords.longitude
+      );
+
+      if (!c) {
+        throw new Error("Coordenadas inválidas");
+      }
+
+      setLatitudSeleccionada(c.latitude);
+      setLongitudSeleccionada(c.longitude);
+      setPrecision(
+        posicion.coords.accuracy
+          ? Math.round(posicion.coords.accuracy)
+          : null
+      );
+
+      await cacheGuardar("ultimaPosicion", c);
+
+      webViewRef.current?.injectJavaScript(`
+        mostrarMarcador(
+          ${c.latitude},
+          ${c.longitude},
+          "Tu ubicación"
+        );
+        true;
+      `);
+
+      const nombreLugar = await geocodificacionInversa(
+        c.latitude,
+        c.longitude
+      );
+
+      setDireccion(
+        nombreLugar ||
+          `${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}`
+      );
+
+    } catch (error) {
+      console.log("Error obteniendo ubicación:", error);
+      Alert.alert(
+        "Error",
+        "No fue posible obtener tu ubicación. Revisa que el GPS esté activo."
+      );
+    } finally {
+      setUbicando(false);
     }
   };
 
@@ -310,23 +689,40 @@ export default function Map() {
 
       setBuscando(true);
 
-      const direccionCodificada =
-        encodeURIComponent(
-          direccion.trim()
-        );
+      const consultaTexto = direccion.trim();
+      const claveBusqueda =
+        `busqueda:${consultaTexto.toLowerCase()}`;
 
-      const respuesta = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${direccionCodificada}&limit=1&countrycodes=co`,
-        {
-          headers: {
-            Accept: "application/json",
-            "User-Agent": "Domingo-App",
-          },
-        }
+      let resultados;
+
+      const enCache = await cacheLeer(
+        claveBusqueda,
+        TTL_GEOCODIFICACION
       );
 
-      const resultados =
-        await respuesta.json();
+      if (enCache && !enCache.vencido) {
+        resultados = enCache.valor;
+      } else {
+        const direccionCodificada =
+          encodeURIComponent(consultaTexto);
+
+        // viewbox prioriza Cali pero sin excluir el resto de Colombia
+        const respuesta = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${direccionCodificada}&limit=1&countrycodes=co&addressdetails=0&accept-language=es&viewbox=${VIEWBOX_CALI}&bounded=0`,
+          {
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "Domingo-App",
+            },
+          }
+        );
+
+        resultados = await respuesta.json();
+
+        if (resultados && resultados.length > 0) {
+          await cacheGuardar(claveBusqueda, resultados);
+        }
+      }
 
       if (
         !resultados ||
@@ -344,14 +740,25 @@ export default function Map() {
       const resultado =
         resultados[0];
 
-      const lat =
-        parseFloat(resultado.lat);
+      const c = normalizarCoordenadas(
+        resultado.lat,
+        resultado.lon
+      );
 
-      const lon =
-        parseFloat(resultado.lon);
+      if (!c) {
+        Alert.alert(
+          "Error",
+          "La búsqueda devolvió coordenadas inválidas."
+        );
+        return;
+      }
+
+      const lat = c.latitude;
+      const lon = c.longitude;
 
       setLatitudSeleccionada(lat);
       setLongitudSeleccionada(lon);
+      setPrecision(null);
 
       setDireccion(
         resultado.display_name
@@ -460,10 +867,16 @@ export default function Map() {
             direccion.trim(),
 
           latitude:
-            latitudSeleccionada,
+            normalizarCoordenadas(
+              latitudSeleccionada,
+              longitudSeleccionada
+            )?.latitude ?? latitudSeleccionada,
 
           longitude:
-            longitudSeleccionada,
+            normalizarCoordenadas(
+              latitudSeleccionada,
+              longitudSeleccionada
+            )?.longitude ?? longitudSeleccionada,
 
           createdAt:
             serverTimestamp(),
@@ -478,7 +891,7 @@ export default function Map() {
       setNombre("");
       setDireccion("");
 
-      await cargarDirecciones();
+      await cargarDirecciones(true);
 
     } catch (error) {
 
@@ -530,7 +943,7 @@ export default function Map() {
                 )
               );
 
-              await cargarDirecciones();
+              await cargarDirecciones(true);
 
               Alert.alert(
                 "Eliminado",
@@ -582,7 +995,7 @@ export default function Map() {
       mostrarMarcador(
         ${item.latitude},
         ${item.longitude},
-        "${item.nombre}"
+        ${JSON.stringify(String(item.nombre || ""))}
       );
       true;
     `);
@@ -611,7 +1024,10 @@ export default function Map() {
 
   return (
 
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
 
       {/* ENCABEZADO */}
 
@@ -621,41 +1037,86 @@ export default function Map() {
           Mapa de emergencia
         </Text>
 
+        <Text style={styles.subtitulo}>
+          Guarda y consulta tus lugares de referencia
+        </Text>
+
 
 
       </View>
 
       {/* MAPA */}
 
-      <View style={styles.mapaContainer}>
+      <View
+        style={[
+          styles.mapaContainer,
+          tecladoVisible && styles.mapaOculto,
+        ]}
+      >
 
         <WebView
           ref={webViewRef}
           originWhitelist={["*"]}
           source={{
             html: mapaHTML,
+            baseUrl: "https://app.local/",
           }}
           javaScriptEnabled={true}
           domStorageEnabled={true}
+          cacheEnabled={true}
+          cacheMode="LOAD_CACHE_ELSE_NETWORK"
+          onLoadEnd={() => {
+            const p = posicionInicial.current;
+            if (p) moverMapa(p.latitude, p.longitude);
+          }}
           onMessage={seleccionarUbicacion}
           style={styles.mapa}
         />
+
+        <TouchableOpacity
+          style={[styles.botonCentrar, { bottom: 64 }]}
+          onPress={usarMiUbicacion}
+          disabled={ubicando}
+        >
+
+          {ubicando ? (
+            <ActivityIndicator size="small" />
+          ) : (
+            <View style={styles.botonMapaFila}>
+              <Ionicons name="locate-outline" size={18} color="#12343F" />
+              <Text style={styles.botonCentrarTexto}>
+                Mi ubicación
+              </Text>
+            </View>
+          )}
+
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.botonCentrar}
           onPress={mostrarUbicacion}
         >
 
-          <Text style={styles.botonCentrarTexto}>
-            📍 Centrar
-          </Text>
+          <View style={styles.botonMapaFila}>
+            <Ionicons name="navigate-outline" size={18} color="#12343F" />
+            <Text style={styles.botonCentrarTexto}>
+              Centrar
+            </Text>
+          </View>
 
         </TouchableOpacity>
 
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.contenido}
+        contentContainerStyle={{
+          paddingBottom: 40 + (Platform.OS === "android" ? alturaTeclado : 0),
+        }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={true}
         showsVerticalScrollIndicator={false}
       >
 
@@ -680,9 +1141,12 @@ export default function Map() {
             }
           >
 
-            <Text style={styles.opcionIcono}>
-              📍
-            </Text>
+            <Ionicons
+              name="location-outline"
+              size={26}
+              color={modo === "mapa" ? "#12343F" : "#8C979A"}
+              style={styles.opcionIcono}
+            />
 
             <Text
               style={[
@@ -711,9 +1175,12 @@ export default function Map() {
             }
           >
 
-            <Text style={styles.opcionIcono}>
-              🔎
-            </Text>
+            <Ionicons
+              name="search-outline"
+              size={26}
+              color={modo === "direccion" ? "#12343F" : "#8C979A"}
+              style={styles.opcionIcono}
+            />
 
             <Text
               style={[
@@ -751,9 +1218,12 @@ export default function Map() {
 
               <View style={styles.ubicacionSeleccionada}>
 
-                <Text style={styles.ubicacionTitulo}>
-                  📍 Ubicación seleccionada
-                </Text>
+                <View style={styles.botonMapaFila}>
+                  <Ionicons name="checkmark-circle" size={18} color="#2F6B4F" />
+                  <Text style={styles.ubicacionTitulo}>
+                    Ubicación seleccionada
+                  </Text>
+                </View>
 
                 <Text style={styles.ubicacionTexto}>
                   {direccion}
@@ -787,6 +1257,9 @@ export default function Map() {
               placeholderTextColor="#98A3A6"
               value={direccion}
               onChangeText={setDireccion}
+              returnKeyType="search"
+              onSubmitEditing={buscarDireccion}
+              autoCorrect={false}
             />
 
             <TouchableOpacity
@@ -807,9 +1280,12 @@ export default function Map() {
 
               ) : (
 
-                <Text style={styles.textoBoton}>
-                  🔎 Buscar dirección
-                </Text>
+                <View style={styles.botonMapaFila}>
+                  <Ionicons name="search" size={18} color="#FFFFFF" />
+                  <Text style={styles.textoBoton}>
+                    Buscar dirección
+                  </Text>
+                </View>
 
               )}
 
@@ -837,6 +1313,8 @@ export default function Map() {
             placeholderTextColor="#98A3A6"
             value={nombre}
             onChangeText={setNombre}
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
           />
 
           <TouchableOpacity
@@ -857,9 +1335,12 @@ export default function Map() {
 
             ) : (
 
-              <Text style={styles.textoBoton}>
-                💾 Guardar lugar
-              </Text>
+              <View style={styles.botonMapaFila}>
+                <Ionicons name="bookmark-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.textoBoton}>
+                  Guardar lugar
+                </Text>
+              </View>
 
             )}
 
@@ -885,9 +1366,12 @@ export default function Map() {
 
           <View style={styles.vacio}>
 
-            <Text style={styles.vacioIcono}>
-              📍
-            </Text>
+            <Ionicons
+              name="location-outline"
+              size={40}
+              color="#8C979A"
+              style={styles.vacioIcono}
+            />
 
             <Text style={styles.vacioTitulo}>
               Todavía no tienes lugares
@@ -917,9 +1401,11 @@ export default function Map() {
 
                 <View style={styles.iconoLugar}>
 
-                  <Text style={styles.iconoLugarTexto}>
-                    📍
-                  </Text>
+                  <Ionicons
+                    name="location"
+                    size={22}
+                    color="#12343F"
+                  />
 
                 </View>
 
@@ -947,9 +1433,11 @@ export default function Map() {
                 }
               >
 
-                <Text style={styles.textoEliminar}>
-                  🗑️
-                </Text>
+                <Ionicons
+                  name="trash-outline"
+                  size={21}
+                  color="#A33A3A"
+                />
 
               </TouchableOpacity>
 
@@ -963,7 +1451,7 @@ export default function Map() {
 
       </ScrollView>
 
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1002,6 +1490,28 @@ const styles = StyleSheet.create({
     fontFamily: SERIF,
   },
 
+  subtitulo: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#B8C7CB",
+    letterSpacing: 0.2,
+  },
+
+  botonMapaFila: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+
+  mapaOculto: {
+    height: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    borderWidth: 0,
+    opacity: 0,
+  },
+
   mapaContainer: {
     height: 280,
     marginHorizontal: 15,
@@ -1026,9 +1536,11 @@ const styles = StyleSheet.create({
     right: 15,
     bottom: 15,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 15,
-    paddingVertical: 11,
-    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E6E1D6",
     elevation: 4,
     shadowColor: "#0D2832",
     shadowOffset: { width: 0, height: 3 },
@@ -1085,8 +1597,7 @@ const styles = StyleSheet.create({
   },
 
   opcionIcono: {
-    fontSize: 25,
-    marginBottom: 8,
+    marginBottom: 10,
   },
 
   opcionTitulo: {
@@ -1149,7 +1660,7 @@ const styles = StyleSheet.create({
   },
 
   ubicacionTexto: {
-    marginTop: 5,
+    marginTop: 6,
     fontSize: 12,
     color: "#4A5A60",
   },
@@ -1260,6 +1771,8 @@ const styles = StyleSheet.create({
   botonEliminar: {
     padding: 10,
     marginLeft: 5,
+    borderRadius: 12,
+    backgroundColor: "#FBEFEF",
   },
 
   textoEliminar: {
@@ -1276,7 +1789,6 @@ const styles = StyleSheet.create({
   },
 
   vacioIcono: {
-    fontSize: 38,
     marginBottom: 10,
   },
 
@@ -1303,4 +1815,3 @@ const styles = StyleSheet.create({
   },
 
 });
-
